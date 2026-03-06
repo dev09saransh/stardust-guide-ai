@@ -1,0 +1,273 @@
+
+> backend@1.0.0 start
+> node src/app.js
+
+[dotenv@17.3.1] injecting env (19) from .env -- tip: 🤖 agentic secret storage: https://dotenvx.com/as2
+[INIT] Loaded ENV: PORT=5001, SID=EXISTS, TOKEN=EXISTS
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+Server running on port 5001
+[REQ] POST /api/auth/login
+[REQ] POST /api/auth/login
+[REQ] POST /api/auth/login
+[REQ] POST /api/auth/login
+[REQ] POST /api/auth/login
+[REQ] POST /api/auth/login
+[REQ] POST /api/auth/login
+[REQ] POST /api/auth/login
+[REQ] POST /api/auth/login
+[REQ] GET /api/auth/profile-completion
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 4,
+  total_customers: 2,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'Bedangshu Raj Mudiar',
+      email: 'workbedangshu@gmail.com',
+      created_at: 2026-03-04T14:56:26.000Z
+    },
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 4,
+  total_customers: 2,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'Bedangshu Raj Mudiar',
+      email: 'workbedangshu@gmail.com',
+      created_at: 2026-03-04T14:56:26.000Z
+    },
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/auth/profile-completion
+📊 [ADMIN STATS]: {
+  total_users: 5,
+  total_customers: 3,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'Delete Me',
+      email: 'deleteme@stardust.com',
+      created_at: 2026-03-05T20:23:39.000Z
+    },
+    {
+      name: 'Bedangshu Raj Mudiar',
+      email: 'workbedangshu@gmail.com',
+      created_at: 2026-03-04T14:56:26.000Z
+    },
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 5,
+  total_customers: 3,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'Delete Me',
+      email: 'deleteme@stardust.com',
+      created_at: 2026-03-05T20:23:39.000Z
+    },
+    {
+      name: 'Bedangshu Raj Mudiar',
+      email: 'workbedangshu@gmail.com',
+      created_at: 2026-03-04T14:56:26.000Z
+    },
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] DELETE /api/admin/users/101
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 4,
+  total_customers: 2,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'Bedangshu Raj Mudiar',
+      email: 'workbedangshu@gmail.com',
+      created_at: 2026-03-04T14:56:26.000Z
+    },
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] DELETE /api/admin/users/13
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/auth/profile-completion
+📊 [ADMIN STATS]: {
+  total_users: 5,
+  total_customers: 2,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'Bedangshu Raj Mudiar',
+      email: 'workbedangshu@gmail.com',
+      created_at: 2026-03-04T14:56:26.000Z
+    },
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 5,
+  total_customers: 2,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'Bedangshu Raj Mudiar',
+      email: 'workbedangshu@gmail.com',
+      created_at: 2026-03-04T14:56:26.000Z
+    },
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] DELETE /api/admin/users/102
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 4,
+  total_customers: 2,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'Bedangshu Raj Mudiar',
+      email: 'workbedangshu@gmail.com',
+      created_at: 2026-03-04T14:56:26.000Z
+    },
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] DELETE /api/admin/users/13
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] DELETE /api/admin/users/13
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] DELETE /api/admin/users/13
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] DELETE /api/admin/users/100
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 3,
+  total_customers: 2,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'Bedangshu Raj Mudiar',
+      email: 'workbedangshu@gmail.com',
+      created_at: 2026-03-04T14:56:26.000Z
+    },
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] DELETE /api/admin/users/32
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 2,
+  total_customers: 1,
+  total_assets: 6,
+  recent_signups: [
+    {
+      name: 'NOTbedangshu',
+      email: 'bbedangshu2003@gmail.com',
+      created_at: 2026-03-02T11:45:01.000Z
+    }
+  ]
+}
+[REQ] DELETE /api/admin/users/30
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/users
+👤 [ADMIN AUTH]: Authorized user: 13
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 1,
+  total_customers: 0,
+  total_assets: 0,
+  recent_signups: []
+}
+[REQ] GET /api/admin/stats
+👤 [ADMIN AUTH]: Authorized user: 13
+📊 [ADMIN STATS]: {
+  total_users: 1,
+  total_customers: 0,
+  total_assets: 0,
+  recent_signups: []
+}
+[REQ] GET /api/auth/profile-completion
+[REQ] GET /api/auth/questions
+[REQ] GET /api/auth/questions

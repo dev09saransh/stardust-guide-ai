@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+frontend/build/
+
+# Backend logs
+backend/combined.log
+backend/error.log
+backend/server.log
+
+# Environment files
+backend/.env
+backend/_env
+frontend/.env
+.env
+**/ .env
+**/.env.local
+**/.env.*.local
+
+# Virtual environments
+.venv/
+venv/
+**/venv/
+**/.venv/
+**/card-benefits-service/.venv/
+
+# macOS junk
+.DS_Store
+._*
+
+# Misc
+*.txt
+
+# Uploads
+backend/uploads/
