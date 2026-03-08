@@ -98,4 +98,59 @@ const getStats = async (req, res) => {
     }
 };
 
-module.exports = { getAllUsers, deleteUser, getStats };
+const getPendingSuccessions = async (req, res) => {
+    try {
+        const [rows] = await db.execute(`
+            SELECT sr.*, n.full_name as nominee_name, u.full_name as owner_name, u.email as owner_email
+            FROM succession_requests sr
+            JOIN nominees n ON sr.nominee_id = n.nominee_id
+            JOIN users u ON sr.user_id = u.user_id
+            WHERE sr.status = 'PENDING'
+            ORDER BY sr.created_at DESC
+        `);
+        res.json(rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching pending successions' });
+    }
+};
+
+const handleSuccessionRequest = async (req, res) => {
+    const { requestId, action } = req.body; // action: 'APPROVE' or 'REJECT'
+
+    if (!['APPROVE', 'REJECT'].includes(action)) {
+        return res.status(400).json({ message: 'Invalid action' });
+    }
+
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+        const [requests] = await connection.execute('SELECT * FROM succession_requests WHERE request_id = ?', [requestId]);
+        if (requests.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Request not found' });
+        }
+
+        const request = requests[0];
+        const newStatus = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+        const userStatus = action === 'APPROVE' ? 'GREEN' : 'RED';
+
+        // Update request status
+        await connection.execute('UPDATE succession_requests SET status = ? WHERE request_id = ?', [newStatus, requestId]);
+
+        // Update user status
+        await connection.execute('UPDATE users SET succession_status = ? WHERE user_id = ?', [userStatus, request.user_id]);
+
+        await connection.commit();
+        res.json({ message: `Succession request ${action.toLowerCase()}d successfully` });
+    } catch (error) {
+        await connection.rollback();
+        console.error(error);
+        res.status(500).json({ message: 'Error handling succession request' });
+    } finally {
+        connection.release();
+    }
+};
+
+module.exports = { getAllUsers, deleteUser, getStats, getPendingSuccessions, handleSuccessionRequest };

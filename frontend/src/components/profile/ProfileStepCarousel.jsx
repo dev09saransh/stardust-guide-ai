@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, User, Calendar, ArrowRight, ArrowLeft, CheckCircle, Loader2, ChevronDown } from 'lucide-react';
 
-const GENDERS = ['Male', 'Female', 'Non-Binary', 'Prefer Not to Say'];
+const GENDERS = ['Male', 'Female', 'Other'];
 
 const inputStyle = {
     width: '100%',
@@ -34,7 +34,7 @@ const labelStyle = {
 const buildSlides = (missingFields) => {
     const all = [];
 
-    // Address slide (if missing)
+    // 1. Personal Identity Fields
     if (missingFields.includes('address')) {
         all.push({
             key: 'address',
@@ -45,7 +45,6 @@ const buildSlides = (missingFields) => {
         });
     }
 
-    // Gender + DOB slide (together if both missing, else individually)
     const missingGender = missingFields.includes('gender');
     const missingDob = missingFields.includes('dob');
     if (missingGender || missingDob) {
@@ -61,7 +60,7 @@ const buildSlides = (missingFields) => {
         });
     }
 
-    // Name slide (rare — if they somehow have no name)
+    // Name slide
     if (missingFields.includes('full_name')) {
         all.push({
             key: 'name',
@@ -72,10 +71,47 @@ const buildSlides = (missingFields) => {
         });
     }
 
+    // Email slide
+    if (missingFields.includes('email')) {
+        all.push({
+            key: 'email',
+            title: 'Email Address',
+            subtitle: 'Used for critical alerts',
+            emoji: '📧',
+            fields: ['email'],
+        });
+    }
+
+    // Mobile slide
+    if (missingFields.includes('mobile')) {
+        all.push({
+            key: 'mobile',
+            title: 'Mobile Number',
+            subtitle: 'Required for OTP security',
+            emoji: '📱',
+            fields: ['mobile'],
+        });
+    }
+
+    // 2. Vault Pillars (Skipped in this modal, handled via separate triggers)
+    /*
+    const missingPillars = missingFields.filter(f => ['has_nominee', 'has_security'].includes(f));
+    if (missingPillars.length > 0) {
+        all.push({
+            key: 'milestones',
+            title: 'Vault Pillars',
+            subtitle: 'Required for active vault release',
+            emoji: '🏛️',
+            fields: [], // Special rendering for this slide
+            pillars: missingPillars
+        });
+    }
+    */
+
     return all;
 };
 
-const ProfileStepCarousel = ({ missingFields, form, setForm, onSave, saving, error }) => {
+const ProfileStepCarousel = ({ missingFields, form, setForm, onSave, saving, error, percentage }) => {
     const slides = buildSlides(missingFields);
     const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -96,6 +132,43 @@ const ProfileStepCarousel = ({ missingFields, form, setForm, onSave, saving, err
     };
 
     if (slides.length === 0) {
+        // If background thinks we are complete but carousel is logically empty, 
+        // fallback to either success or loading based on percentage
+        if (percentage < 100) {
+            return (
+                <div style={{ padding: '40px 32px', textAlign: 'center' }}>
+                    <div style={{
+                        width: '72px', height: '72px', borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 20px',
+                        boxShadow: '0 8px 30px rgba(245,158,11,0.3)',
+                    }}>
+                        <CheckCircle size={32} color="white" />
+                    </div>
+                    <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'white', margin: '0 0 8px' }}>
+                        Almost There!
+                    </h3>
+                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 500, lineHeight: 1.5 }}>
+                        Your personal details are set. Please add a nominee or security questions from the dashboard to reach 100%.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={onSave}
+                        style={{
+                            marginTop: '20px', padding: '12px 24px',
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 'none', borderRadius: '12px',
+                            color: 'white', fontWeight: 700, fontSize: '13px',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                        }}
+                    >
+                        Got it
+                    </button>
+                </div>
+            );
+        }
+
         return (
             <div style={{ padding: '20px 32px 32px', textAlign: 'center' }}>
                 <div style={{
@@ -108,10 +181,10 @@ const ProfileStepCarousel = ({ missingFields, form, setForm, onSave, saving, err
                     <CheckCircle size={32} color="white" />
                 </div>
                 <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'white', margin: '0 0 8px' }}>
-                    Profile Complete!
+                    Vault Ready!
                 </h3>
-                <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>
-                    All your profile fields are set up.
+                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontWeight: 500, lineHeight: 1.5 }}>
+                    Your profile is 100% complete and your vault is fully secured and operational.
                 </p>
             </div>
         );
@@ -275,7 +348,30 @@ const ProfileStepCarousel = ({ missingFields, form, setForm, onSave, saving, err
 
                     {/* Fields */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
-                        {slide.fields.map(renderField)}
+                        {slide.key === 'milestones' ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {slide.pillars.map(p => (
+                                    <div key={p} style={{
+                                        display: 'flex', alignItems: 'center', gap: '12px',
+                                        padding: '14px 18px', borderRadius: '16px',
+                                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                                    }}>
+                                        <div style={{
+                                            width: '8px', height: '8px', borderRadius: '50%',
+                                            background: '#f59e0b', boxShadow: '0 0 8px rgba(245,158,11,0.4)',
+                                        }} />
+                                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'capitalize' }}>
+                                            Missing: {p.replace('has_', '')}
+                                        </span>
+                                    </div>
+                                ))}
+                                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', marginTop: '6px', textAlign: 'center', fontWeight: 500 }}>
+                                    Complete these in the dashboard to finish setup.
+                                </p>
+                            </div>
+                        ) : (
+                            slide.fields.map(renderField)
+                        )}
                     </div>
 
                     {/* Error */}

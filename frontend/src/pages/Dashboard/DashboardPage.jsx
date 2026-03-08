@@ -4,43 +4,41 @@ import axios from 'axios';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import {
-  LayoutDashboard,
-  Wallet,
-  ShieldCheck,
-  FileText,
-  Users,
-  LogOut,
-  Search,
+  AlertTriangle,
+  ArrowRight,
   Bell,
-  Plus,
-  TrendingUp,
   Building,
-  Clock,
+  Car,
+  CheckCircle,
   ChevronRight,
-  Mail,
-  Key,
-  Settings as SettingsIcon,
+  Clock,
+  CreditCard,
+  Edit2,
   Eye,
   EyeOff,
-  Copy,
-  Smartphone,
-  Trash2,
-  Edit2,
-  Lock,
-  Car,
-  Briefcase,
-  ShieldAlert,
-  AlertTriangle,
-  RefreshCw,
-  CheckCircle,
-  ArrowRight,
-  Sun,
-  Moon,
-  CreditCard,
+  FileText,
   History,
-  UserPlus,
+  Key,
+  LayoutDashboard,
+  Lock,
   LogIn,
-  Sparkles,
+  LogOut,
+  Mail,
+  Moon,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings as SettingsIcon,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Smartphone,
+  Sun,
+  Trash2,
+  TrendingUp,
+  UserPlus,
+  Users,
+  Wallet
 } from 'lucide-react';
 import UniversalVaultForm from '../../components/common/UniversalVaultForm';
 import CategoryPicker from '../../components/common/CategoryPicker';
@@ -50,6 +48,9 @@ import ProfileCompletionModal from '../../components/profile/ProfileCompletionMo
 import { VaultConfirm, VaultToast } from '../../components/common/VaultUI';
 import DataSyncModal from '../../components/Dashboard/DataSyncModal';
 import FirstAssetWizard, { CelebrationScreen } from '../../components/Onboarding/FirstAssetWizard';
+import ManualClaimModal from '../../components/Dashboard/ManualClaimModal';
+import LoginAuditTable from '../../components/Dashboard/LoginAuditTable';
+import AddAccountModal from '../../components/Dashboard/AddAccountModal';
 
 const DigitalCard = ({ card, onClick, userName }) => {
   const bankGradients = {
@@ -111,12 +112,15 @@ const DigitalCard = ({ card, onClick, userName }) => {
   );
 };
 
-const AssetDetailOverlay = ({ asset: card, onClose, fetchAIStats, benefitsLoading, userName, onDelete, onEdit }) => {
+const AssetDetailOverlay = ({ asset: card, onClose, fetchAIStats, benefitsLoading, userName, onDelete, onEdit, isReadOnly }) => {
   useEffect(() => {
-    if (card && card.category === 'Credit Card' && !card.aiBenefits && !benefitsLoading) {
+    // Only fetch if it's a credit card, benefits aren't loaded, we aren't already loading,
+    // AND we haven't already attempted and failed (to avoid infinite error loops)
+    const hasError = typeof card?.aiBenefits === 'string' && card.aiBenefits.startsWith('ERROR');
+    if (card && card.category === 'Credit Card' && !card.aiBenefits && !benefitsLoading && !hasError) {
       fetchAIStats(card);
     }
-  }, [card]);
+  }, [card, benefitsLoading, fetchAIStats]);
 
   return (
     <motion.div
@@ -209,21 +213,31 @@ const AssetDetailOverlay = ({ asset: card, onClose, fetchAIStats, benefitsLoadin
           )}
         </div>
 
-        <div className="mt-auto pt-10 flex space-x-3">
-          <button
-            onClick={() => onEdit(card)}
-            className="flex-1 py-4 bg-[var(--primary)] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-transform"
-          >
-            Edit Asset Details
-          </button>
-          <button
-            onClick={() => onDelete(card.asset_id)}
-            className="p-4 bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-red-500 hover:bg-red-500/10 transition-colors"
-          >
-            <Trash2 size={20} />
-          </button>
-          <button className="p-4 bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-[var(--text-secondary)] hover:bg-[var(--surface)] transition-colors">
-            <History size={20} />
+        <div className="mt-auto pt-10 flex flex-col space-y-4">
+          {isReadOnly ? (
+            <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-center space-x-2">
+              <ShieldCheck size={16} className="text-emerald-500" />
+              <span className="text-xs font-black text-emerald-500 uppercase tracking-widest">End-to-End Encrypted | View Only</span>
+            </div>
+          ) : (
+            <div className="flex space-x-3">
+              <button
+                onClick={() => onEdit(card)}
+                className="flex-1 py-4 bg-[var(--primary)] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-transform"
+              >
+                Edit Asset Details
+              </button>
+              <button
+                onClick={() => onDelete(card.asset_id)}
+                className="p-4 bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-red-500 hover:bg-red-500/10 transition-colors"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
+          )}
+          <button className="w-full py-4 bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-[var(--text-secondary)] hover:bg-[var(--surface)] transition-colors flex items-center justify-center gap-2">
+            <History size={18} />
+            <span className="text-xs font-bold uppercase tracking-widest">View Audit History</span>
           </button>
         </div>
       </motion.div>
@@ -247,6 +261,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
 
   // Onboarding & Profile Completion state
   const [showNomineeModal, setShowNomineeModal] = useState(false);
+  const [showManualClaimModal, setShowManualClaimModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [profileCompletion, setProfileCompletion] = useState({ percentage: 0, is_complete: false, fields: {}, missing: [] });
   const [showProfilePrompt, setShowProfilePrompt] = useState(false);
@@ -260,11 +275,14 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   const [nomineeSaving, setNomineeSaving] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const [benefitsLoading, setBenefitsLoading] = useState(false);
-  const [cardBenefits, setCardBenefits] = useState(null);
   const [editingAsset, setEditingAsset] = useState(null);
   const [formShake, setFormShake] = useState(false);
   const [formGlow, setFormGlow] = useState(false);
   const [showMFSync, setShowMFSync] = useState(false);
+  const [showAddAccountModal, setShowAddAccountModal] = useState(false);
+  const [inheritedAccounts, setInheritedAccounts] = useState([]);
+  const [activeAccount, setActiveAccount] = useState(null); // null means own account
+  const [showVaultID, setShowVaultID] = useState(false);
 
   // Trigger shake/glow when trying to navigate away with unsaved form
   const triggerFormAlert = () => {
@@ -288,50 +306,92 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
   const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' });
-
   const API = 'http://localhost:5001/api';
-  const authHeaders = useMemo(() => ({
-    Authorization: `Bearer ${user?.token || ''}`
-  }), [user?.token]);
+  const authHeaders = useMemo(() => {
+    const headers = { Authorization: `Bearer ${user?.token || ''}` };
+    if (activeAccount?.user_id) {
+      headers['x-vault-context'] = activeAccount.user_id.toString();
+    }
+    return headers;
+  }, [user?.token, activeAccount]);
 
   // Fetch profile completion %
   const fetchProfileCompletion = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/auth/profile-completion`, { headers: authHeaders });
       setProfileCompletion(res.data);
-    } catch (err) {
+    } catch (error) {
       console.error('Error fetching profile completion');
     }
   }, [authHeaders]);
+
+  // Fetch inherited accounts
+  const fetchInheritedAccounts = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/inherited`, {
+        headers: { Authorization: `Bearer ${user?.token}` }
+      });
+      setInheritedAccounts(res.data);
+    } catch (err) {
+      console.error('Error fetching inherited accounts:', err);
+    }
+  }, [user?.token]);
+
+  useEffect(() => {
+    if (user?.token) {
+      fetchInheritedAccounts();
+    }
+  }, [user?.token, fetchInheritedAccounts]);
+
+  const switchAccount = (account) => {
+    // Reset states for clean transition
+    setAssets([]);
+    setLoading(true);
+    // Setting active account triggers authHeaders update -> fetch callbacks update -> main useEffect re-fetch
+    setActiveAccount(account);
+
+    if (account) {
+      showToast(`Shifting to ${account.full_name}'s Profile`, 'success');
+    } else {
+      showToast('Back to Personal Vault', 'success');
+    }
+  };
+
+
 
   // Fetch user profile for settings
   const fetchUserProfile = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/auth/profile`, { headers: authHeaders });
       setUserProfile(res.data);
-      setSettingsForm({
-        full_name: res.data.full_name || '',
-        address: res.data.address || '',
-        gender: res.data.gender || '',
-        dob: res.data.dob ? res.data.dob.split('T')[0] : '',
+      // Only initialize settingsForm if not currently editing to prevent overwriting user input
+      setSettingsForm(prev => {
+        if (settingsEditing) return prev;
+        return {
+          full_name: res.data.full_name || '',
+          address: res.data.address || '',
+          gender: res.data.gender || '',
+          dob: res.data.dob ? res.data.dob.split('T')[0] : '',
+        };
       });
     } catch (err) {
       console.error('Error fetching user profile');
     }
-  }, [authHeaders]);
+  }, [authHeaders, settingsEditing]);
 
   // Fetch nominee
   const fetchNominee = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/auth/nominee`, { headers: authHeaders });
-      setNominee(res.data.nominee);
-      if (res.data.nominee) {
+      const nom = res.data.nominees && res.data.nominees.length > 0 ? res.data.nominees[0] : null;
+      setNominee(nom);
+      if (nom) {
         setNomineeForm({
-          full_name: res.data.nominee.full_name || '',
-          email: res.data.nominee.email || '',
-          mobile: res.data.nominee.mobile?.replace(/^\+\d{1,3}/, '') || '',
-          country_code: res.data.nominee.mobile?.match(/^(\+\d{1,3})/)?.[1] || '+91',
-          relationship: res.data.nominee.relationship || '',
+          full_name: nom.full_name || '',
+          email: nom.email || '',
+          mobile: nom.mobile?.replace(/^\+\d{1,3}/, '') || '',
+          country_code: nom.mobile?.match(/^(\+\d{1,3})/)?.[1] || '+91',
+          relationship: nom.relationship || '',
         });
       }
     } catch (err) {
@@ -347,7 +407,8 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       });
       setAssets(res.data);
     } catch (err) {
-      console.error('Error fetching assets');
+      console.error('Error fetching assets:', err);
+      showToast('Vault connection disrupted. Retrying...', 'error');
     } finally {
       setLoading(false);
     }
@@ -372,6 +433,10 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   };
 
   const handleEditAsset = (card) => {
+    if (activeAccount) {
+      showToast('Permission denied: Account is in view-only mode.', 'error');
+      return;
+    }
     setEditingAsset(card);
     setIsAdding(true);
     setAddingCategory(card.category);
@@ -392,7 +457,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
     } else {
       setLoading(false);
     }
-  }, [isGuest, user?.token, fetchAssets, fetchProfileCompletion, fetchUserProfile, fetchNominee]);
+  }, [isGuest, user?.token, activeAccount, fetchAssets, fetchProfileCompletion, fetchUserProfile, fetchNominee]);
 
   // Show first asset wizard for authenticated users with 0 assets and complete profile
   useEffect(() => {
@@ -404,6 +469,18 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       }
     }
   }, [isGuest, loading, assets.length, profileCompletion.is_complete]);
+
+  // Auto-prompt nominee setup if missing after profile completion
+  useEffect(() => {
+    if (!isGuest && !loading && profileCompletion.is_complete && !nominee && !showNomineeModal) {
+      const dismissed = localStorage.getItem('stardust_nominee_prompt_dismissed');
+      if (!dismissed) {
+        // Show prompt after a short delay to give UI time to settle
+        const timer = setTimeout(() => setShowNomineeModal(true), 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isGuest, loading, profileCompletion.is_complete, nominee, showNomineeModal]);
 
   const stats = [
     { label: 'Total Assets', value: assets.length.toString(), icon: <TrendingUp className="text-blue-400" />, trend: 'Vault Sync', color: 'bg-blue-500/10' },
@@ -419,8 +496,14 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       auth.openAuthModal('signup');
       return;
     }
+    /* 
     if (userProfile && !userProfile.is_verified) {
       showToast('Device verification required to add assets.', 'error');
+      return;
+    }
+    */
+    if (activeAccount) {
+      showToast('View-only access: Document modification restricted.', 'error');
       return;
     }
     if (!profileCompletion.is_complete) {
@@ -470,16 +553,19 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
     setShowAccountModal(false);
     fetchProfileCompletion();
     fetchUserProfile();
-    // After account details, prompt for nominee if not added
-    if (!profileCompletion.has_nominee) {
-      setTimeout(() => setShowNomineeModal(true), 500);
+    // After account details, prompt for nominee if missing
+    if (!nominee) {
+      setTimeout(() => setShowNomineeModal(true), 800);
     }
   };
 
   // Nominee modal completed
   const handleNomineeComplete = () => {
     setShowNomineeModal(false);
+    fetchNominee();
     fetchProfileCompletion();
+    // Mark as dismissed so it doesn't auto-popup again immediately if they just closed it
+    localStorage.setItem('stardust_nominee_prompt_dismissed', 'true');
   };
 
   // Save settings
@@ -497,7 +583,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
     }
   };
 
-  const fetchAIStats = async (card) => {
+  const fetchAIStats = useCallback(async (card) => {
     if (!card.metadata?.bank && !card.metadata?.network) {
       console.log('Skipping AI benefits call - missing key metadata:', card.metadata);
       return;
@@ -527,7 +613,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
     } finally {
       setBenefitsLoading(false);
     }
-  };
+  }, []);
 
   // Components moved outside to prevent infinite remount loops
 
@@ -544,13 +630,13 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8" id="dashboard-section">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6" id="dashboard-section">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-4xl font-black text-[var(--text-primary)] tracking-tighter">Vault Command Center</h1>
-                <p className="text-[var(--text-secondary)] mt-1 font-medium">Monitor your global asset health and security status.</p>
+                <h1 className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">Vault Command Center</h1>
+                <p className="text-sm text-[var(--text-secondary)] font-medium">Monitor your global asset health and security status.</p>
               </div>
-              <div className="flex space-x-4">
+              <div className="flex space-x-3">
                 <button
                   onClick={() => {
                     if (isGuest) {
@@ -559,23 +645,23 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                     }
                     setShowNomineeModal(true);
                   }}
-                  className="px-6 py-3 rounded-2xl font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all flex items-center space-x-2"
+                  className="px-5 py-2.5 rounded-xl font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all flex items-center space-x-2 text-sm"
                 >
-                  <UserPlus size={18} />
+                  <UserPlus size={16} />
                   <span>Add Nominee</span>
                 </button>
-                <button className="px-6 py-3 rounded-2xl font-bold bg-[var(--surface-glass)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all flex items-center space-x-2">
-                  <FileText size={18} />
+                <button className="px-5 py-2.5 rounded-xl font-bold bg-[var(--surface-glass)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all flex items-center space-x-2 text-sm">
+                  <FileText size={16} />
                   <span>Export Report</span>
                 </button>
-                <button id="add-resource-btn" onClick={() => guardedStartAdding(null)} className="btn-primary flex items-center space-x-2 px-6 py-3">
-                  <Plus size={20} />
+                <button id="add-resource-btn" onClick={() => guardedStartAdding(null)} className="btn-primary flex items-center space-x-2 px-5 py-2.5 text-sm">
+                  <Plus size={18} />
                   <span>Add New Resource</span>
                 </button>
               </div>
             </div>
 
-            <div className="max-w-4xl mx-auto mt-12 text-center space-y-8">
+            <div className="w-full mt-8 text-left space-y-8">
               {assets.length === 0 ? (
                 <div className="card glass p-12 relative overflow-hidden flex flex-col items-center border border-[var(--border)] shadow-2xl">
                   <div className="absolute top-0 right-0 w-96 h-96 bg-[var(--primary)]/5 rounded-full blur-[80px] pointer-events-none" />
@@ -625,10 +711,10 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   {stats.map((stat, i) => (
-                    <div key={i} className="card glass p-4 border border-[var(--border)] text-left flex flex-col justify-between min-h-[120px]">
-                      <div className="flex items-center justify-between mb-4">
+                    <div key={i} className="card glass p-4 border border-[var(--border)] text-left flex flex-col justify-between min-h-[100px]">
+                      <div className="flex items-center justify-between mb-3">
                         <div className={`p-2 rounded-xl ${stat.color}`}>
-                          {stat.icon}
+                          {React.cloneElement(stat.icon, { size: 18 })}
                         </div>
                         <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{stat.trend}</span>
                       </div>
@@ -640,8 +726,94 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                   ))}
                 </div>
               )}
+
+              {/* Security & Audit Row */}
+              {!isGuest && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
+                  {/* Vault Security Code Card */}
+                  <div className="card glass p-8 border border-[var(--border)] relative overflow-hidden flex flex-col justify-between min-h-[320px]">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2.5 bg-blue-500/10 rounded-xl">
+                          <Shield size={18} className="text-blue-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-black text-[var(--text-primary)] tracking-tight">Vault Security ID</h3>
+                          <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-widest leading-none">Your Private Recovery Access</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowVaultID(!showVaultID)}
+                        className="p-1.5 rounded-lg bg-[var(--surface-glass)] text-[var(--text-secondary)] hover:text-blue-400 hover:bg-blue-500/10 transition-all border border-[var(--border)]"
+                        title={showVaultID ? "Hide Security Code" : "Show Security Code"}
+                      >
+                        {showVaultID ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+
+                    <div className="bg-[var(--surface-glass)] border border-[var(--border)] rounded-xl p-4 flex flex-col items-center justify-center space-y-3">
+                      <div className="text-center">
+                        <p className="text-[9px] font-black text-blue-500/60 uppercase tracking-[0.2em] mb-2">Active Vault Code</p>
+                        <div className="flex items-center space-x-2">
+                          {showVaultID ? (
+                            <span className="text-3xl font-mono font-black text-blue-400 tracking-[0.15em] drop-shadow-[0_0_15px_rgba(96,165,250,0.3)]">
+                              {(() => {
+                                const code = userProfile?.security_code || '';
+                                if (code.length === 9) {
+                                  return `${code.slice(0, 3)}-${code.slice(3, 6)}-${code.slice(6, 9)}`;
+                                }
+                                return code || '--------';
+                              })()}
+                            </span>
+                          ) : (
+                            <div className="flex space-x-2">
+                              {[1, 2, 3].map(group => (
+                                <div key={group} className="flex space-x-1.5 items-center">
+                                  {[1, 2, 3].map(i => (
+                                    <div key={i} className="w-3 h-3 rounded-full bg-blue-500/10 border border-blue-500/20 shadow-[0_0_8px_rgba(59,130,246,0.1)]" />
+                                  ))}
+                                  {group < 3 && <div className="w-2 h-0.5 bg-blue-500/20 rounded-full mx-1" />}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center space-x-2 text-[9px] text-[var(--text-secondary)] font-medium bg-blue-500/5 p-2.5 rounded-xl border border-blue-500/10">
+                      <Lock size={10} className="text-blue-400 shrink-0" />
+                      <span className="leading-tight">This code is required for vault recovery and nominee linking. Keep it shared ONLY with trusted legacy contacts.</span>
+                    </div>
+                  </div>
+
+                  {/* Audit Trail Card */}
+                  <div className="card glass p-8 border border-[var(--border)] relative overflow-hidden flex flex-col min-h-[320px]">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                          <History size={18} className="text-emerald-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-black text-[var(--text-primary)] tracking-tight">Security Audit Trail</h3>
+                          <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-widest leading-none">Real-time Activity Logging</p>
+                        </div>
+                      </div>
+                      <div className="px-2 py-0.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                        <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Live Monitor</span>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2">
+                      <LoginAuditTable mini={true} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </motion.div>
+          </motion.div >
         );
       case 'assets':
         return (
@@ -652,25 +824,31 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                 <p className="text-[var(--text-secondary)] mt-1 font-medium">Full inventory of your global physical and digital wealth.</p>
               </div>
               <div className="flex space-x-3">
-                <button onClick={() => guardedStartAdding('Credit Card')} className="btn-secondary px-6 py-3 flex items-center space-x-2">
-                  <CreditCard size={18} />
-                  <span>Add Card</span>
-                </button>
-                <button onClick={() => guardedStartAdding(null)} className="btn-primary px-6 py-3 flex items-center space-x-2">
-                  <Plus size={20} />
-                  <span>Register Asset</span>
-                </button>
-                {assetFilter === 'Investment' && (
-                  <button onClick={() => setShowMFSync(true)} className="px-6 py-3 bg-[var(--primary)] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-transform flex items-center space-x-2">
-                    <RefreshCw size={18} />
-                    <span>Sync Portfolio</span>
+                {!activeAccount && (
+                  <button onClick={() => guardedStartAdding('Credit Card')} className="btn-secondary px-6 py-3 flex items-center space-x-2">
+                    <CreditCard size={18} />
+                    <span>Add Card</span>
                   </button>
+                )}
+                {!activeAccount && (
+                  <>
+                    <button onClick={() => guardedStartAdding(null)} className="btn-primary px-6 py-3 flex items-center space-x-2">
+                      <Plus size={20} />
+                      <span>Register Asset</span>
+                    </button>
+                    {assetFilter === 'Investment' && (
+                      <button onClick={() => setShowMFSync(true)} className="px-6 py-3 bg-[var(--primary)] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-transform flex items-center space-x-2">
+                        <RefreshCw size={18} />
+                        <span>Sync Portfolio</span>
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div className="flex space-x-2 border-b border-white/5 pb-px overflow-x-auto custom-scrollbar flex-1">
+              <div className="flex space-x-2 border-b border-[var(--border)] pb-px overflow-x-auto custom-scrollbar flex-1">
                 {[
                   { id: 'All Assets', label: 'All Assets' },
                   { id: 'Property', label: 'Real Estate' },
@@ -784,18 +962,30 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                         </span>
                       </td>
                       <td className="px-6 py-5 text-right flex justify-end space-x-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleEditAsset(asset); }}
-                          className="text-[var(--text-secondary)] hover:text-blue-500 transition-all p-2 rounded-lg hover:bg-[var(--surface-glass)]"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteAsset(asset.asset_id); }}
-                          className="text-[var(--text-secondary)] hover:text-red-500 transition-all p-2 rounded-lg hover:bg-[var(--surface-glass)]"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex space-x-2">
+                          {!activeAccount && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditAsset(asset);
+                                }}
+                                className="text-[var(--text-secondary)] hover:text-blue-500 transition-all p-2 rounded-lg hover:bg-[var(--surface-glass)]"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAsset(asset.asset_id);
+                                }}
+                                className="text-[var(--text-secondary)] hover:text-red-500 transition-all p-2 rounded-lg hover:bg-[var(--surface-glass)]"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                         <div className="text-[var(--text-secondary)] opacity-30 group-hover:text-[var(--primary)] transition-all p-2 rounded-lg group-hover:translate-x-1">
                           <ChevronRight size={20} />
                         </div>
@@ -818,8 +1008,9 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                   fetchAIStats={fetchAIStats}
                   benefitsLoading={benefitsLoading}
                   userName={userProfile?.full_name || user?.user?.name || user?.name}
-                  onDelete={handleDeleteAsset}
-                  onEdit={handleEditAsset}
+                  onDelete={activeAccount ? null : handleDeleteAsset}
+                  onEdit={activeAccount ? null : handleEditAsset}
+                  isReadOnly={!!activeAccount}
                 />
               )}
             </AnimatePresence>
@@ -876,12 +1067,16 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                       <ShieldCheck size={32} />
                     </div>
                     <div className="flex space-x-1">
-                      <button onClick={(e) => { e.stopPropagation(); handleEditAsset(policy); }} className="p-2 text-[var(--text-secondary)] hover:text-blue-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
-                        <Edit2 size={16} />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAsset(policy.asset_id); }} className="p-2 text-[var(--text-secondary)] hover:text-red-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
-                        <Trash2 size={16} />
-                      </button>
+                      {!activeAccount && (
+                        <>
+                          <button onClick={(e) => { e.stopPropagation(); handleEditAsset(policy); }} className="p-2 text-[var(--text-secondary)] hover:text-blue-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
+                            <Edit2 size={16} />
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); setConfirmModal({ isOpen: true, id: policy.asset_id }); }} className="p-2 text-[var(--text-secondary)] hover:text-red-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <h3 className="text-2xl font-black text-[var(--text-primary)] mb-2 tracking-tight group-hover:text-[var(--primary)] transition-colors">{policy.title}</h3>
@@ -917,8 +1112,9 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                   fetchAIStats={fetchAIStats}
                   benefitsLoading={benefitsLoading}
                   userName={userProfile?.full_name || user?.user?.name || user?.name}
-                  onDelete={handleDeleteAsset}
-                  onEdit={handleEditAsset}
+                  onDelete={activeAccount ? null : handleDeleteAsset}
+                  onEdit={activeAccount ? null : handleEditAsset}
+                  isReadOnly={!!activeAccount}
                 />
               )}
             </AnimatePresence>
@@ -973,12 +1169,16 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
 
                   <div className="mt-6 pt-4 border-t border-[var(--border)] flex items-center justify-between relative z-10">
                     <div className="flex space-x-2">
-                      <button onClick={(e) => { e.stopPropagation(); handleEditAsset(cred); }} className="p-2 text-[var(--text-secondary)] hover:text-blue-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAsset(cred.asset_id); }} className="p-2 text-[var(--text-secondary)] hover:text-red-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
-                        <Trash2 size={14} />
-                      </button>
+                      {!activeAccount && (
+                        <>
+                          <button onClick={(e) => { e.stopPropagation(); handleEditAsset(cred); }} className="p-2 text-[var(--text-secondary)] hover:text-blue-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); setConfirmModal({ isOpen: true, id: cred.asset_id }); }} className="p-2 text-[var(--text-secondary)] hover:text-red-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
                     </div>
                     <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest opacity-80 flex items-center">
                       <ShieldCheck size={10} className="mr-1" />
@@ -1001,8 +1201,9 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                   fetchAIStats={fetchAIStats}
                   benefitsLoading={benefitsLoading}
                   userName={userProfile?.full_name || user?.user?.name || user?.name}
-                  onDelete={handleDeleteAsset}
-                  onEdit={handleEditAsset}
+                  onDelete={activeAccount ? null : handleDeleteAsset}
+                  onEdit={activeAccount ? null : handleEditAsset}
+                  isReadOnly={!!activeAccount}
                 />
               )}
             </AnimatePresence>
@@ -1031,14 +1232,16 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                   <div className="absolute top-0 right-0 w-16 h-16 bg-[var(--primary)]/5 rounded-full blur-xl pointer-events-none" />
 
                   {/* Action Buttons */}
-                  <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <button onClick={(e) => { e.stopPropagation(); handleEditAsset(doc); }} className="p-2 text-[var(--text-secondary)] hover:text-blue-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
-                      <Edit2 size={16} />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteAsset(doc.asset_id); }} className="p-2 text-[var(--text-secondary)] hover:text-red-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {!activeAccount && (
+                    <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <button onClick={(e) => { e.stopPropagation(); handleEditAsset(doc); }} className="p-2 text-[var(--text-secondary)] hover:text-blue-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
+                        <Edit2 size={16} />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setConfirmModal({ isOpen: true, id: doc.asset_id }); }} className="p-2 text-[var(--text-secondary)] hover:text-red-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
 
                   <div className="w-20 h-20 bg-[var(--surface-glass)] text-[var(--primary)] rounded-3xl flex items-center justify-center mb-6 relative transition-transform group-hover:scale-110 shadow-inner border border-[var(--border)]">
                     <FileText size={40} />
@@ -1071,8 +1274,9 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                   fetchAIStats={fetchAIStats}
                   benefitsLoading={benefitsLoading}
                   userName={userProfile?.full_name || user?.user?.name || user?.name}
-                  onDelete={handleDeleteAsset}
-                  onEdit={handleEditAsset}
+                  onDelete={activeAccount ? null : handleDeleteAsset}
+                  onEdit={activeAccount ? null : handleEditAsset}
+                  isReadOnly={!!activeAccount}
                 />
               )}
             </AnimatePresence>
@@ -1144,8 +1348,9 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                   fetchAIStats={fetchAIStats}
                   benefitsLoading={benefitsLoading}
                   userName={userProfile?.full_name || user?.user?.name || user?.name}
-                  onDelete={handleDeleteAsset}
-                  onEdit={handleEditAsset}
+                  onDelete={activeAccount ? null : handleDeleteAsset}
+                  onEdit={activeAccount ? null : handleEditAsset}
+                  isReadOnly={!!activeAccount}
                 />
               )}
             </AnimatePresence>
@@ -1153,7 +1358,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
         );
       case 'settings':
         return (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 max-w-4xl" id="settings-section">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 w-full" id="settings-section">
             <div className="mb-10 flex items-center justify-between">
               <div>
                 <h1 className="text-4xl font-black text-[var(--text-primary)] tracking-tighter">Vault Settings</h1>
@@ -1305,7 +1510,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                     <div className="w-16 h-16 bg-[var(--surface-glass)] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[var(--border)] shadow-inner">
                       <Users size={28} className="text-[var(--primary)]" />
                     </div>
-                    <p className="text-white font-black uppercase tracking-[0.3em] text-xs opacity-50 mb-2">The empty chair.</p>
+                    <p className="text-[var(--text-primary)] font-black uppercase tracking-[0.3em] text-xs opacity-50 mb-2">The empty chair.</p>
                     <p className="text-sm text-[var(--text-secondary)] font-medium">Add a trusted person who can access your vault.</p>
                   </div>
                 )}
@@ -1314,10 +1519,9 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
               <div className="card glass p-8">
                 <h3 className="text-2xl font-black text-[var(--text-primary)] mb-8 border-b border-[var(--border)] pb-6">Security Configuration</h3>
                 <div className="space-y-8">
-                  <div className="flex items-center justify-between p-8 bg-emerald-400/10 rounded-[2rem] border border-emerald-400/20 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-full bg-emerald-400/5 -skew-x-12 translate-x-16 group-hover:translate-x-8 transition-transform duration-700" />
-                    <div className="flex items-center space-x-6 relative z-10">
-                      <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-emerald-400 shadow-xl border border-white/10">
+                  <div className="bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between group hover:border-[var(--primary)] transition-all">
+                    <div className="flex items-center space-x-4 mb-4 sm:mb-0">
+                      <div className="w-16 h-16 bg-[var(--surface-glass)] rounded-2xl flex items-center justify-center text-emerald-400 shadow-xl border border-[var(--border)]">
                         <Smartphone size={32} />
                       </div>
                       <div>
@@ -1368,6 +1572,8 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
             </div>
           </motion.div>
         );
+      case 'security':
+        return <LoginAuditTable />;
       default:
         return null;
     }
@@ -1388,7 +1594,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   };
 
   return (
-    <div className={`min-h-screen bg-[var(--bg-main)] text-[var(--text-primary)] font-sans relative flex ${!isGuest && 'selection:bg-[var(--primary)] selection:text-white'}`}>
+    <div className={`min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] relative flex ${!isGuest && 'selection:bg-[var(--primary)] selection:text-white'}`}>
       {isOnboarded && (
         <OnboardingTour
           user={user}
@@ -1436,12 +1642,18 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
             { id: 'credentials', label: 'Passwords', icon: <Key size={20} /> },
             { id: 'legal', label: 'Legal Center', icon: <FileText size={20} /> },
             { id: 'contacts', label: 'Contacts', icon: <Users size={20} /> },
+            { id: 'recover', label: 'Recover Vault', icon: <ShieldAlert size={20} /> },
+            { id: 'security', label: 'Security Log', icon: <Shield size={20} /> },
           ].map(item => (
             <button
               key={item.id}
               id={`nav-${item.id}`}
               onClick={() => {
-                handleNavClick(item.id);
+                if (item.id === 'recover') {
+                  setShowManualClaimModal(true);
+                } else {
+                  handleNavClick(item.id);
+                }
               }}
               className={`w-full nav-item group flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${activeTab === item.id ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]'}`}
             >
@@ -1490,17 +1702,73 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
               </button>
             </div>
           ) : (
-            <div className="bg-[var(--surface-glass)] rounded-2xl p-4 flex items-center space-x-3 border border-[var(--border)]">
-              <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)] font-bold shadow-inner">
-                {user?.user?.name ? user.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'JD'}
+            <div className="flex flex-col space-y-6">
+              {/* Context Switcher Area */}
+              <div className="space-y-4">
+                {/* My Personal Vault (Default Context) */}
+                <div
+                  onClick={() => switchAccount(null)}
+                  className={`relative overflow-hidden group p-4 rounded-2xl border transition-all cursor-pointer ${!activeAccount ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-[var(--surface-glass)] border-[var(--border)] hover:bg-[var(--surface)]'}`}
+                >
+                  <div className="flex items-center space-x-3 relative z-10">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black shadow-inner transition-colors ${!activeAccount ? 'bg-white text-blue-600' : 'bg-[var(--surface-glass)] text-[var(--text-secondary)]'}`}>
+                      {user?.user?.name ? user.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'JD'}
+                    </div>
+                    <div className="flex-1 truncate">
+                      <p className={`text-sm font-black truncate ${!activeAccount ? 'text-white' : 'text-[var(--text-primary)]'}`}>My Personal Vault</p>
+                      <p className={`text-[10px] font-black uppercase tracking-widest ${!activeAccount ? 'text-blue-100/60' : 'text-[var(--text-secondary)]'}`}>Main Storage</p>
+                    </div>
+                    {!activeAccount && <div className="w-2 h-2 rounded-full bg-blue-100 animate-pulse" />}
+                  </div>
+                </div>
+
+                {/* Inherited Vaults List */}
+                {inheritedAccounts.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-2 mb-2">
+                      <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] opacity-40">Inherited Vaults</p>
+                      <div className="h-px flex-1 bg-[var(--border)] ml-3 opacity-20" />
+                    </div>
+                    {inheritedAccounts.map(acc => (
+                      <button
+                        key={acc.user_id}
+                        onClick={() => switchAccount(acc)}
+                        className={`w-full group flex items-center space-x-3 p-3 rounded-xl transition-all border ${activeAccount?.user_id === acc.user_id ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-[var(--surface-glass)] border-[var(--border)] hover:bg-[var(--surface)]'}`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs transition-colors ${activeAccount?.user_id === acc.user_id ? 'bg-emerald-500 text-white' : 'bg-indigo-500/10 text-indigo-400'}`}>
+                          {acc.full_name[0]}
+                        </div>
+                        <div className="flex-1 text-left truncate">
+                          <p className={`text-xs font-black truncate ${activeAccount?.user_id === acc.user_id ? 'text-emerald-400' : 'text-[var(--text-primary)]'}`}>{acc.full_name}</p>
+                          <p className={`text-[9px] font-black uppercase tracking-widest ${activeAccount?.user_id === acc.user_id ? 'text-emerald-500/60' : 'text-[var(--text-secondary)]'}`}>Legacy Account</p>
+                        </div>
+                        {activeAccount?.user_id === acc.user_id && <LogIn size={14} className="text-emerald-500" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex-1 truncate">
-                <p className="text-sm font-bold text-[var(--text-primary)] truncate">{user?.user?.name || user?.user?.full_name || 'User'}</p>
-                <p className="text-[10px] font-extrabold text-emerald-500 uppercase tracking-widest">{user?.user?.role || 'CUSTOMER'}</p>
+
+              {/* Account Controls */}
+              <div className="pt-6 border-t border-[var(--border)] flex items-center justify-between px-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-full bg-[var(--surface-glass)] flex items-center justify-center">
+                    <History size={14} className="text-[var(--text-secondary)]" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-[var(--text-primary)] leading-none">{user?.user?.name?.split(' ')[0]}</p>
+                    <p className="text-[8px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mt-1">Logged In</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setShowAddAccountModal(true)} className="p-2 text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-all" title="Link Vault">
+                    <UserPlus size={16} />
+                  </button>
+                  <button onClick={onLogout} className="p-2 text-[var(--text-secondary)] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="Secure Logout">
+                    <LogOut size={16} />
+                  </button>
+                </div>
               </div>
-              <button onClick={onLogout} className="text-[var(--text-secondary)] hover:text-red-400 transition-colors p-2 hover:bg-red-400/10 rounded-lg">
-                <LogOut size={18} />
-              </button>
             </div>
           )}
         </div>
@@ -1509,7 +1777,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* Verification Banner */}
-        {userProfile && !userProfile.is_verified && (
+        {userProfile && !userProfile.is_verified && !activeAccount && (
           <div className="bg-amber-500/10 border-b border-amber-500/20 px-10 py-3 flex items-center justify-between z-40 relative">
             <div className="flex items-center space-x-3">
               <AlertTriangle size={18} className="text-amber-500" />
@@ -1527,10 +1795,45 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
           </div>
         )}
 
+        {/* Legacy Mode Banner */}
+        {activeAccount && (
+          <div className="bg-emerald-600 px-10 py-2 flex items-center justify-between z-40 relative shadow-lg">
+            <div className="flex items-center space-x-3">
+              <ShieldCheck size={18} className="text-white" />
+              <span className="text-xs font-black text-white uppercase tracking-[0.2em]">Viewing Legacy Vault: {activeAccount.full_name}</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest opacity-80 decoration-dotted underline underline-offset-4">View-Only Protocol Active</span>
+              <button
+                onClick={() => switchAccount(null)}
+                className="px-4 py-1.5 bg-white text-emerald-600 font-black text-[10px] uppercase tracking-widest rounded-lg hover:bg-emerald-50 transition-colors shadow-sm"
+              >
+                Return to My Vault
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Nominee Setup Banner (Shown only if Profile is 100% but Nominee is missing) */}
+        {!isGuest && !activeAccount && profileCompletion.is_complete && !nominee && (
+          <div className="bg-indigo-500/10 border-b border-indigo-500/20 px-10 py-3 flex items-center justify-between z-40 relative">
+            <div className="flex items-center space-x-3">
+              <Users size={18} className="text-indigo-400" />
+              <span className="text-sm font-bold text-indigo-400">Vault Milestone: Designate your Legacy Contact (Nominee) to secure your inheritance.</span>
+            </div>
+            <button
+              onClick={() => setShowNomineeModal(true)}
+              className="px-4 py-1.5 bg-indigo-500 text-white font-black text-xs uppercase tracking-widest rounded-lg hover:bg-indigo-400 transition-colors"
+            >
+              Start Setup
+            </button>
+          </div>
+        )}
+
         {/* Search & Header */}
         <header className="glass border-b border-[var(--border)] z-30 sticky top-0 transition-colors">
           {/* Profile Completion Bar */}
-          {!profileCompletion.is_complete && (
+          {!activeAccount && !profileCompletion.is_complete && (
             <div className="px-10 py-2 bg-[var(--primary)]/10 border-b border-[var(--border)]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -1554,8 +1857,8 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
               </div>
             </div>
           )}
-          <div className="h-20 flex items-center justify-between px-10">
-            <div className="relative w-full max-w-xl group">
+          <div className="h-20 flex items-center justify-between px-8">
+            <div className="relative w-full max-w-2xl group">
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
               <input
                 type="text"
@@ -1721,7 +2024,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
         </AnimatePresence>
 
         {/* Scrollable Workspace */}
-        <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-8 py-6 custom-scrollbar">
           <AnimatePresence mode="wait">
             {isAdding ? (
               <motion.div
@@ -1790,6 +2093,26 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
         message={toast.message}
         type={toast.type}
         onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
+      />
+
+      <ManualClaimModal
+        isOpen={showManualClaimModal}
+        onClose={() => setShowManualClaimModal(false)}
+        onVerified={(vaultData) => {
+          console.log('Nominee verified, vault access granted:', vaultData);
+          showToast('Identity confirmed. Vault access granted.', 'success');
+          // In a real scenario, this would redirect or refresh the view with the retrieved data
+        }}
+        user={user}
+      />
+
+      <AddAccountModal
+        isOpen={showAddAccountModal}
+        onClose={() => setShowAddAccountModal(false)}
+        onAccountAdded={() => {
+          fetchInheritedAccounts();
+          setShowAddAccountModal(false);
+        }}
       />
     </div>
   );

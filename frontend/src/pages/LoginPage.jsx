@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import { Shield, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 import { VaultToast } from '../components/common/VaultUI';
 
@@ -19,6 +19,7 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
   const [recoveryAnswers, setRecoveryAnswers] = useState([]);
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' });
 
   const showToast = (message, type = 'success') => {
@@ -40,7 +41,7 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
       if (response.data.status === 'OTP_REQUIRED') {
         setShowOtp(true);
         setLoginDetails(response.data);
-      } else if (response.data.token) {
+      } else if (response.data.status === 'SUCCESS' || response.data.token) {
         onLoginSuccess(response.data);
       }
     } catch (err) {
@@ -195,13 +196,20 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
                 <div className="relative group">
                   <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     placeholder="••••••••"
-                    className="input-field pl-14"
+                    className="input-field pl-14 pr-12"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
                 </div>
               </div>
 

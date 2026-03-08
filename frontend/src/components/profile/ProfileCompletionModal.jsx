@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Shield, CheckCircle, Loader2, X } from 'lucide-react';
@@ -7,10 +7,15 @@ import ProfileStepCarousel from './ProfileStepCarousel';
 
 const API = 'http://localhost:5001/api/auth';
 
-const TOTAL_FIELDS = ['full_name', 'email', 'mobile', 'password', 'address', 'gender', 'dob'];
-
+const TOTAL_FIELDS = [
+    'full_name', 'email', 'mobile', 'address', 'gender', 'dob'
+];
 const ProfileCompletionModal = ({ user, onComplete }) => {
-    const headers = { Authorization: `Bearer ${user?.token}` };
+    const headers = useMemo(() => ({
+        Authorization: `Bearer ${user?.token}`
+    }), [user?.token]);
+
+    const isInitialized = useRef(false);
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -28,10 +33,11 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
         address: '',
         gender: '',
         dob: '',
+        email: '',
+        mobile: ''
     });
 
-    // ── Fetch profile completion ──
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const [completionRes, profileRes] = await Promise.all([
@@ -46,21 +52,28 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
             setMissingFields(comp.missing || []);
             setPercentage(comp.percentage || 0);
 
-            // Pre-fill form with whatever already exists (so editable fields are not blank)
-            setForm({
-                full_name: prof.full_name || '',
-                address: prof.address || '',
-                gender: prof.gender || '',
-                dob: prof.dob ? prof.dob.split('T')[0] : '',
-            });
+            // Only initialize form if not already touched/initialized
+            if (!isInitialized.current) {
+                setForm({
+                    full_name: prof.full_name || '',
+                    address: prof.address || '',
+                    gender: prof.gender || '',
+                    dob: prof.dob ? prof.dob.split('T')[0] : '',
+                    email: prof.email || '',
+                    mobile: prof.mobile || ''
+                });
+                isInitialized.current = true;
+            }
         } catch (err) {
             console.error('ProfileCompletionModal: failed to fetch data', err);
         } finally {
             setLoading(false);
         }
-    };
+    }, [headers]);
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     // ── Compute display values ──
     const completedCount = profileData
@@ -72,9 +85,11 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
     const handleSave = async () => {
         setError('');
         // Validate: any field in missingFields that is editable must be filled
-        const editableMissing = missingFields.filter(f => ['address', 'gender', 'dob', 'full_name'].includes(f));
+        const editableKeys = ['address', 'gender', 'dob', 'full_name', 'email', 'mobile'];
+        const editableMissing = missingFields.filter(f => editableKeys.includes(f));
+
         for (const field of editableMissing) {
-            if (!form[field]?.trim?.()) {
+            if (!String(form[field] || '').trim()) {
                 setError(`Please fill in your ${field.replace('_', ' ')} before saving.`);
                 return;
             }
@@ -82,9 +97,7 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
 
         setSaving(true);
         try {
-            const payload = {};
-            editableMissing.forEach(f => { payload[f] = form[f]; });
-            await axios.put(`${API}/profile`, payload, { headers });
+            await axios.put(`${API}/profile`, form, { headers });
             setSaveSuccess(true);
             setTimeout(() => { if (onComplete) onComplete(); }, 1600);
         } catch (err) {
@@ -108,8 +121,9 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
     }
 
     return (
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
             <motion.div
+                key="modal-overlay"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -134,7 +148,6 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
                 <motion.div
                     initial={{ scale: 0.9, y: 30, opacity: 0 }}
                     animate={{ scale: 1, y: 0, opacity: 1 }}
-                    exit={{ scale: 0.9, y: 30, opacity: 0 }}
                     transition={{ type: 'spring', damping: 22, stiffness: 180 }}
                     style={{
                         position: 'relative', zIndex: 10,
@@ -144,6 +157,7 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
                         border: '1px solid rgba(255,255,255,0.08)',
                         boxShadow: '0 40px 100px rgba(0,0,0,0.5), 0 0 60px rgba(99,102,241,0.15)',
                         overflow: 'hidden',
+                        fontFamily: "'Inter', sans-serif",
                     }}
                 >
                     {/* Close Button */}
@@ -182,10 +196,10 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
                                     <CheckCircle size={38} color="white" />
                                 </div>
                                 <h3 style={{ fontSize: '22px', fontWeight: 900, color: 'white', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
-                                    Profile Complete!
+                                    Update Saved!
                                 </h3>
                                 <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>
-                                    Your profile is now fully set up. Welcome aboard!
+                                    Your information has been updated.
                                 </p>
                             </motion.div>
                         ) : (
@@ -210,9 +224,9 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
                                                 Complete Your Profile
                                             </h2>
                                             <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: '3px 0 0', fontWeight: 500 }}>
-                                                {missingFields.length === 0
-                                                    ? 'All set! Your profile looks great.'
-                                                    : `${missingFields.length} field${missingFields.length > 1 ? 's' : ''} remaining to unlock all features.`}
+                                                {(totalCount - completedCount) === 0
+                                                    ? 'All set! Your vault is fully ready.'
+                                                    : `${totalCount - completedCount} area${(totalCount - completedCount) > 1 ? 's' : ''} remaining.`}
                                             </p>
                                         </div>
                                     </div>
@@ -227,7 +241,7 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
                                     />
                                 </div>
 
-                                {/* Already-completed fields summary (read-only badges) */}
+                                {/* Completed Fields Summary */}
                                 {profileData && (
                                     <div style={{ padding: '0 32px 6px' }}>
                                         <p style={{
@@ -235,7 +249,7 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
                                             letterSpacing: '0.12em', color: 'rgba(255,255,255,0.25)',
                                             marginBottom: '8px', marginLeft: '2px',
                                         }}>
-                                            Already Complete
+                                            Pillars Completed
                                         </p>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                             {TOTAL_FIELDS.filter(f => profileData[f]).map(f => (
@@ -246,7 +260,7 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
                                                     fontSize: '11px', fontWeight: 700, color: '#34d399',
                                                     textTransform: 'capitalize',
                                                 }}>
-                                                    ✓ {f.replace('_', ' ')}
+                                                    ✓ {f.replace('_', ' ').replace('has ', '')}
                                                 </span>
                                             ))}
                                         </div>
@@ -263,19 +277,20 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
 
                                 {/* Carousel / Step form for missing fields */}
                                 <ProfileStepCarousel
-                                    missingFields={missingFields.filter(f => ['address', 'gender', 'dob', 'full_name'].includes(f))}
+                                    missingFields={missingFields}
                                     form={form}
                                     setForm={setForm}
                                     onSave={handleSave}
                                     saving={saving}
                                     error={error}
+                                    percentage={percentage}
                                 />
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </motion.div>
             </motion.div>
-        </AnimatePresence>
+        </AnimatePresence >
     );
 };
 

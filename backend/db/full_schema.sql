@@ -4,6 +4,18 @@
 CREATE DATABASE IF NOT EXISTS stardust;
 USE stardust;
 
+-- 🛡️ 0. VAULT POLICIES TABLE
+CREATE TABLE IF NOT EXISTS vault_policies (
+    policy_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    inactivity_trigger_period INT DEFAULT 9, -- months
+    reminder_interval INT DEFAULT 3, -- months
+    nominee_limit INT DEFAULT 2,
+    admin_verification_required BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 👤 1. USERS TABLE (Core Identity)
 CREATE TABLE IF NOT EXISTS users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -25,8 +37,14 @@ CREATE TABLE IF NOT EXISTS users (
     gender ENUM('Male', 'Female', 'Other') DEFAULT NULL,
     dob DATE DEFAULT NULL,
     has_completed_onboarding BOOLEAN DEFAULT 0,
+    security_code VARCHAR(255) DEFAULT NULL,
+    vault_policy_id INT DEFAULT 1,
+    last_login_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    inactivity_reminder_count INT DEFAULT 0,
+    succession_status ENUM('NONE', 'RED', 'ORANGE', 'GREEN') DEFAULT 'NONE',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (vault_policy_id) REFERENCES vault_policies(policy_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 👥 NOMINEES TABLE (Legacy Contacts)

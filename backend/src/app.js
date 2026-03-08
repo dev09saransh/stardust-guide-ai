@@ -38,7 +38,7 @@ if (process.env.NODE_ENV !== 'production') {
 // Rate Limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+    max: 1000, // Increased for development
     message: 'Too many requests from this IP, please try again after 15 minutes'
 });
 app.use('/api/', limiter);
@@ -54,6 +54,9 @@ app.use('/api/assets', require('./routes/assetRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/uploads', require('./routes/uploadRoutes'));
 app.use('/api/financial', require('./routes/financialDataRoutes'));
+app.use('/api/succession', require('./routes/successionRoutes'));
+app.use('/api/vault-policies', require('./routes/vaultPolicyRoutes'));
+app.use('/api/inherited', require('./routes/inheritedRoutes'));
 
 // Port
 const PORT = process.env.PORT || 5000;

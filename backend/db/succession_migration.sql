@@ -1,0 +1,23 @@
+-- 🌌 STARDUST FINANCIAL VAULT - SUCCESSION SYSTEM MIGRATION
+
+USE stardust;
+
+-- 👤 1. Update Users table for inactivity tracking
+ALTER TABLE users 
+ADD COLUMN last_login_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN inactivity_reminder_count INT DEFAULT 0,
+ADD COLUMN succession_status ENUM('NONE', 'RED', 'ORANGE', 'GREEN') DEFAULT 'NONE';
+
+-- 👥 2. Succession Requests table
+CREATE TABLE IF NOT EXISTS succession_requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    nominee_id INT NOT NULL,
+    proof_path VARCHAR(500) DEFAULT NULL,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (nominee_id) REFERENCES nominees(nominee_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -25,7 +25,10 @@ const {
     recoverLookup,
     recoverSendOTP,
     recoverVerify,
-    recoverUpdateAccount
+    recoverUpdateAccount,
+    getAuditLogs,
+    getNomineeOpportunities,
+    linkNomineeAccount
 } = require('../controllers/authController');
 const { auth } = require('../middleware/auth');
 
@@ -73,6 +76,11 @@ router.post('/nominee/verify-phone-otp', auth, verifyNomineePhoneOTP);
 router.get('/profile', auth, getUserProfile);
 router.put('/profile', auth, updateUserProfile);
 router.get('/profile-completion', auth, getProfileCompletion);
+
+// Audit & Account Switching
+router.get('/audit-logs', auth, getAuditLogs);
+router.get('/nominee-opportunities', auth, getNomineeOpportunities);
+router.post('/link-account', auth, linkNomineeAccount);
 
 module.exports = router;
 

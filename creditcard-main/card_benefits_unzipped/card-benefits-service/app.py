@@ -95,5 +95,5 @@ def card_benefits():
 # ==============================
 
 if __name__ == "__main__":
-    print("Server running on http://localhost:5000")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    print("Server running on http://localhost:5005")
+    app.run(host="0.0.0.0", port=5005, debug=True)

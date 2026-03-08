@@ -25,4 +25,17 @@ const requireRole = (role) => {
     };
 };
 
-module.exports = { auth, requireRole };
+const adminAuth = (req, res, next) => {
+    auth(req, res, (err) => {
+        if (err) return next(err);
+        if (req.user && req.user.role === 'ADMIN') {
+            next();
+        } else {
+            res.status(403).json({ message: 'Forbidden: Admin access required' });
+        }
+    });
+};
+
+const customerAuth = auth;
+
+module.exports = { auth, requireRole, adminAuth, customerAuth };

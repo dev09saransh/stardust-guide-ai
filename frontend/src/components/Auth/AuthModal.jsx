@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, User, Mail, Lock, Phone, ArrowRight, X, AlertCircle } from 'lucide-react';
+import { Shield, User, Mail, Lock, Phone, ArrowRight, X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 
@@ -16,6 +16,9 @@ const AuthModal = () => {
     const [showOtp, setShowOtp] = useState(false);
     const [otpCode, setOtpCode] = useState('');
     const [loginDetails, setLoginDetails] = useState(null);
+    const [showLoginPass, setShowLoginPass] = useState(false);
+    const [showRegPass, setShowRegPass] = useState(false);
+    const [showSecurityCodeScreen, setShowSecurityCodeScreen] = useState(false);
 
     // Register State
     const [regStep, setRegStep] = useState(1);
@@ -139,6 +142,15 @@ const AuthModal = () => {
         }
     };
 
+    function handleVerificationSuccess(data) {
+        if (data.securityCode) {
+            setRegDetails(prev => ({ ...prev, securityCode: data.securityCode }));
+            setShowSecurityCodeScreen(true);
+        } else {
+            register(data);
+        }
+    }
+
     const handleRegOtp = async (e) => {
         e.preventDefault();
         setRegLoading(true);
@@ -148,7 +160,12 @@ const AuthModal = () => {
                 userId: regDetails.userId,
                 otp: regOtpCode
             });
-            if (res.data.token) register(res.data);
+            if (res.data.token) {
+                // Verification successful. Update regDetails with token/user info
+                // and show the security code screen (using the code we got from register call)
+                setRegDetails(prev => ({ ...prev, ...res.data }));
+                setShowSecurityCodeScreen(true);
+            }
         } catch (err) {
             setRegError(err.response?.data?.message || 'Invalid OTP.');
         } finally {
@@ -284,6 +301,7 @@ const AuthModal = () => {
                         maxHeight: '90vh',
                         display: 'flex',
                         flexDirection: 'column',
+                        fontFamily: "'Inter', sans-serif",
                     }}
                 >
                     {/* Close */}
@@ -380,13 +398,21 @@ const AuthModal = () => {
                                                 <div style={{ position: 'relative' }}>
                                                     <Lock size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
                                                     <input
-                                                        type="password" required placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
-                                                        style={inputStyle}
+                                                        type={showLoginPass ? 'text' : 'password'}
+                                                        required placeholder="••••••••"
+                                                        style={{ ...inputStyle, paddingRight: '48px' }}
                                                         value={loginForm.password}
                                                         onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                                                         onFocus={e => { e.target.style.borderColor = 'rgba(99, 102, 241, 0.5)'; e.target.style.background = 'rgba(255,255,255,0.06)'; }}
                                                         onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(255,255,255,0.04)'; }}
                                                     />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowLoginPass(!showLoginPass)}
+                                                        style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}
+                                                    >
+                                                        {showLoginPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                    </button>
                                                 </div>
                                             </div>
 
@@ -543,16 +569,29 @@ const AuthModal = () => {
                                                         style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
                                                     >
                                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                                            <div>
+                                                            <div style={{ position: 'relative' }}>
                                                                 <label style={labelStyle}>Password</label>
-                                                                <input type="password" required placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" style={inputStyleNoPad}
+                                                                <input
+                                                                    type={showRegPass ? 'text' : 'password'}
+                                                                    required placeholder="••••••••"
+                                                                    style={{ ...inputStyleNoPad, paddingRight: '40px' }}
                                                                     value={regForm.password}
                                                                     onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
                                                                 />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowRegPass(!showRegPass)}
+                                                                    style={{ position: 'absolute', right: '12px', bottom: '14px', background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}
+                                                                >
+                                                                    {showRegPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                                </button>
                                                             </div>
-                                                            <div>
+                                                            <div style={{ position: 'relative' }}>
                                                                 <label style={labelStyle}>Confirm</label>
-                                                                <input type="password" required placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" style={inputStyleNoPad}
+                                                                <input
+                                                                    type={showRegPass ? 'text' : 'password'}
+                                                                    required placeholder="••••••••"
+                                                                    style={{ ...inputStyleNoPad, paddingRight: '40px' }}
                                                                     value={regForm.confirmPassword}
                                                                     onChange={(e) => setRegForm({ ...regForm, confirmPassword: e.target.value })}
                                                                 />
@@ -608,6 +647,27 @@ const AuthModal = () => {
 
                                             {errorBox(regError)}
                                         </form>
+                                    ) : showSecurityCodeScreen ? (
+                                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: 'center', padding: '20px 0' }}>
+                                            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                                                <Shield size={32} color="#22c55e" />
+                                            </div>
+                                            <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'white', marginBottom: '8px' }}>VAULT INITIALIZED</h3>
+                                            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '24px', lineHeight: 1.6 }}>
+                                                Your unique vault security code has been generated. <b style={{ color: 'white' }}>Write this down.</b> You will need it to link your vault to nominees or recover access.
+                                            </p>
+                                            <div style={{
+                                                padding: '16px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)',
+                                                borderRadius: '16px', marginBottom: '24px', fontFamily: 'monospace', fontSize: '24px',
+                                                fontWeight: 900, color: '#818cf8', letterSpacing: '0.2em',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                {regDetails?.securityCode}
+                                            </div>
+                                            <button onClick={() => register({ token: regDetails.token, user: regDetails.user })} style={btnPrimary}>
+                                                <span>Securely Enter Vault</span>
+                                            </button>
+                                        </motion.div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                             <p style={{ textAlign: 'center', fontSize: '14px', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
@@ -624,7 +684,7 @@ const AuthModal = () => {
                                                 {regLoading ? spinner : 'Verify & Enter'}
                                             </button>
                                             {regDetails?.token && (
-                                                <button onClick={() => register({ token: regDetails.token, user: regDetails.user })}
+                                                <button onClick={() => handleVerificationSuccess(regDetails)}
                                                     style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                                                     Skip verification & continue
                                                 </button>
@@ -637,7 +697,7 @@ const AuthModal = () => {
                     </div>
                 </motion.div>
             </motion.div>
-        </AnimatePresence>
+        </AnimatePresence >
     );
 };
 

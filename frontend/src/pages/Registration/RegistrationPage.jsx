@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, User, Mail, Lock, Phone, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Shield, User, Mail, Lock, Phone, ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 
 const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
@@ -22,7 +22,9 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
   const [countryCode, setCountryCode] = useState('+91');
   const [showOtp, setShowOtp] = useState(false);
   const [otpCode, setOtpCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [regDetails, setRegDetails] = useState(null);
+  const [showSecurityCode, setShowSecurityCode] = useState(false);
 
   const countryCodes = [
     { code: '+91', name: 'India' },
@@ -72,11 +74,12 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
         security_answers: securityData
       });
 
-      if (response.data.status === 'REGISTRATION_OTP_REQUIRED') {
+      if (response.data.status === 'SUCCESS' || response.data.token) {
+        setRegDetails(response.data);
+        setShowSecurityCode(true);
+      } else if (response.data.status === 'REGISTRATION_OTP_REQUIRED') {
         setRegDetails(response.data);
         setShowOtp(true);
-      } else if (response.data.token) {
-        onRegisterSuccess(response.data);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
@@ -97,7 +100,8 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
       });
 
       if (response.data.token) {
-        onRegisterSuccess(response.data);
+        setRegDetails(prev => ({ ...prev, ...response.data }));
+        setShowSecurityCode(true);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid OTP. Please try again.');
@@ -276,9 +280,20 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
                       <div className="relative group">
                         <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
                         <input
-                          type="password" required placeholder="••••••••" className="input-field pl-14"
-                          value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          type={showPassword ? "text" : "password"}
+                          required
+                          placeholder="••••••••"
+                          className="input-field pl-14 pr-12"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors"
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -286,8 +301,12 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
                       <div className="relative group">
                         <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
                         <input
-                          type="password" required placeholder="••••••••" className="input-field pl-14"
-                          value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                          type={showPassword ? "text" : "password"}
+                          required
+                          placeholder="••••••••"
+                          className="input-field pl-14 pr-12"
+                          value={formData.confirmPassword}
+                          onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                         />
                       </div>
                     </div>
@@ -403,7 +422,7 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
               {regDetails?.token && (
                 <button
                   type="button"
-                  onClick={() => onRegisterSuccess({ token: regDetails.token, user: regDetails.user })}
+                  onClick={() => setShowSecurityCode(true)}
                   className="w-full text-center text-[var(--primary)] font-bold hover:underline transition-colors py-2"
                 >
                   Skip for now & access workspace
@@ -416,6 +435,33 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
                 className="w-full text-center text-sm font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               >
                 Reconfigure Details
+              </button>
+            </motion.div>
+          )}
+
+          {showSecurityCode && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-4">
+              <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-6">
+                <Shield size={32} className="text-green-500" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Vault Initialized</h3>
+              <p className="text-[var(--text-secondary)] text-sm mb-8 leading-relaxed">
+                Your unique vault security code has been generated. <b className="text-[var(--text-primary)]">Write this down.</b> You will need it to link your vault to nominees or recover access.
+              </p>
+              <div className="p-6 bg-blue-500/10 border border-blue-500/20 rounded-3xl mb-10 font-mono text-3xl font-black text-blue-400 tracking-[0.2em] shadow-lg shadow-blue-500/5 flex items-center justify-center">
+                {(() => {
+                  const code = regDetails?.securityCode || '';
+                  if (code.length === 9) {
+                    return `${code.slice(0, 3)}-${code.slice(3, 6)}-${code.slice(6, 9)}`;
+                  }
+                  return code;
+                })()}
+              </div>
+              <button
+                onClick={() => onRegisterSuccess({ token: regDetails.token, user: regDetails.user })}
+                className="w-full btn-primary py-5"
+              >
+                <span>Securely Enter Vault</span>
               </button>
             </motion.div>
           )}

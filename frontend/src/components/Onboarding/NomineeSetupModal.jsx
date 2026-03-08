@@ -21,7 +21,8 @@ const RELATIONSHIPS = [
 ];
 
 const NomineeSetupModal = ({ user, onComplete }) => {
-    const [step, setStep] = useState(1); // 1 = details, 2 = email OTP, 3 = success
+    // 1: Identity, 2: Phone, 3: Relationship, 4: Email OTP, 5: Phone OTP, 6: Success
+    const [step, setStep] = useState(1);
     const [form, setForm] = useState({
         full_name: '',
         email: '',
@@ -33,37 +34,44 @@ const NomineeSetupModal = ({ user, onComplete }) => {
     const [otp, setOtp] = useState('');
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
-    const [otpSent, setOtpSent] = useState(false);
-    const [emailVerified, setEmailVerified] = useState(false);
     const [otpError, setOtpError] = useState('');
 
     const API = 'http://localhost:5001/api/auth';
     const headers = { Authorization: `Bearer ${user.token}` };
 
-    const validateForm = () => {
+    const validateStep = (currentStep) => {
         const errs = {};
-        if (!form.full_name.trim()) errs.full_name = 'Full name is required';
-        if (!form.email.trim()) errs.email = 'Email is required';
-        else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Invalid email format';
-        if (!form.mobile.trim()) errs.mobile = 'Phone number is required';
-        else if (!/^\d{7,15}$/.test(form.mobile)) errs.mobile = 'Enter a valid phone number';
-        if (form.mobile !== form.confirm_mobile) errs.confirm_mobile = 'Phone numbers do not match';
-        if (!form.relationship) errs.relationship = 'Please select a relationship';
+        if (currentStep === 1) {
+            if (!form.full_name.trim()) errs.full_name = 'Full name is required';
+            if (!form.email.trim()) errs.email = 'Email is required';
+            else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Invalid email format';
+        } else if (currentStep === 2) {
+            if (!form.mobile.trim()) errs.mobile = 'Phone number is required';
+            else if (!/^\d{7,15}$/.test(form.mobile)) errs.mobile = 'Enter a valid phone number';
+            if (form.mobile !== form.confirm_mobile) errs.confirm_mobile = 'Phone numbers do not match';
+        } else if (currentStep === 3) {
+            if (!form.relationship) errs.relationship = 'Please select a relationship';
+        }
         setErrors(errs);
         return Object.keys(errs).length === 0;
     };
 
-    const handleSendOTP = async () => {
-        if (!validateForm()) return;
-        setLoading(true);
-        try {
-            await axios.post(`${API}/nominee/send-email-otp`, { email: form.email }, { headers });
-            setOtpSent(true);
-            setStep(2);
-        } catch (err) {
-            setErrors({ email: err.response?.data?.message || 'Failed to send OTP' });
-        } finally {
-            setLoading(false);
+    const handleNext = async () => {
+        if (!validateStep(step)) return;
+
+        if (step === 3) {
+            // Last detail step, send email OTP
+            setLoading(true);
+            try {
+                await axios.post(`${API}/nominee/send-email-otp`, { email: form.email }, { headers });
+                setStep(4);
+            } catch (err) {
+                setErrors({ email: err.response?.data?.message || 'Failed to send OTP' });
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            setStep(step + 1);
         }
     };
 
@@ -76,7 +84,6 @@ const NomineeSetupModal = ({ user, onComplete }) => {
         setOtpError('');
         try {
             await axios.post(`${API}/nominee/verify-email-otp`, { otp }, { headers });
-            setEmailVerified(true);
 
             // Send Phone OTP
             await axios.post(`${API}/nominee/send-phone-otp`, {
@@ -84,9 +91,9 @@ const NomineeSetupModal = ({ user, onComplete }) => {
                 country_code: form.country_code
             }, { headers });
 
-            setOtp(''); // Clear OTP input
+            setOtp('');
             setOtpError('');
-            setStep(3);
+            setStep(5);
         } catch (err) {
             setOtpError(err.response?.data?.message || 'Email OTP verification failed');
         } finally {
@@ -104,7 +111,6 @@ const NomineeSetupModal = ({ user, onComplete }) => {
         try {
             await axios.post(`${API}/nominee/verify-phone-otp`, { otp }, { headers });
 
-            // Now save the nominee
             await axios.post(`${API}/nominee`, {
                 full_name: form.full_name,
                 email: form.email,
@@ -113,8 +119,7 @@ const NomineeSetupModal = ({ user, onComplete }) => {
                 relationship: form.relationship,
             }, { headers });
 
-            setStep(4);
-            // Auto-close after 2 seconds
+            setStep(6);
             setTimeout(() => { if (onComplete) onComplete(); }, 2000);
         } catch (err) {
             setOtpError(err.response?.data?.message || 'Phone OTP verification failed');
@@ -127,9 +132,9 @@ const NomineeSetupModal = ({ user, onComplete }) => {
         setLoading(true);
         setOtpError('');
         try {
-            if (step === 2) {
+            if (step === 4) {
                 await axios.post(`${API}/nominee/send-email-otp`, { email: form.email }, { headers });
-            } else if (step === 3) {
+            } else if (step === 5) {
                 await axios.post(`${API}/nominee/send-phone-otp`, { mobile: form.mobile, country_code: form.country_code }, { headers });
             }
             setOtpError('');
@@ -141,12 +146,26 @@ const NomineeSetupModal = ({ user, onComplete }) => {
         }
     };
 
+    const getPercentage = () => {
+        switch (step) {
+            case 1: return 15;
+            case 2: return 35;
+            case 3: return 50;
+            case 4: return 75;
+            case 5: return 90;
+            case 6: return 100;
+            default: return 0;
+        }
+    };
+
+    const percentage = getPercentage();
+
     return (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(15, 23, 42, 0.7)',
+            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '20px',
+            padding: '20px', overflowY: 'auto',
         }}>
             <AnimatePresence mode="wait">
                 <motion.div
@@ -154,15 +173,16 @@ const NomineeSetupModal = ({ user, onComplete }) => {
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                    transition={{ duration: 0.3 }}
+                    transition={{ type: 'spring', damping: 22, stiffness: 180 }}
                     style={{
-                        background: '#ffffff',
-                        borderRadius: '24px',
-                        width: '100%',
-                        maxWidth: step === 4 ? '420px' : '520px',
-                        boxShadow: '0 25px 80px rgba(0,0,0,0.25)',
+                        position: 'relative', zIndex: 10,
+                        width: '100%', maxWidth: step === 4 ? '420px' : '480px',
+                        background: 'rgba(18, 18, 32, 0.98)',
+                        borderRadius: '2rem',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        boxShadow: '0 40px 100px rgba(0,0,0,0.5), 0 0 60px rgba(99,102,241,0.15)',
                         overflow: 'hidden',
-                        position: 'relative',
+                        fontFamily: "'Inter', sans-serif",
                     }}
                 >
                     {/* Close (X) Button */}
@@ -171,368 +191,317 @@ const NomineeSetupModal = ({ user, onComplete }) => {
                             type="button"
                             onClick={onComplete}
                             style={{
-                                position: 'absolute', top: '14px', right: '14px', zIndex: 20,
-                                background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)',
-                                borderRadius: '10px', padding: '6px', cursor: 'pointer',
+                                position: 'absolute', top: '22px', right: '22px', zIndex: 20,
+                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '10px', padding: '7px', cursor: 'pointer',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: 'rgba(255,255,255,0.7)', transition: 'all 0.2s',
+                                color: 'rgba(255,255,255,0.45)', transition: 'all 0.2s',
                             }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.35)'; e.currentTarget.style.color = 'white'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
                         >
-                            <X size={16} />
+                            <X size={17} />
                         </button>
                     )}
-                    {/* Header gradient */}
+                    {/* Header */}
                     <div style={{
-                        background: 'linear-gradient(135deg, #7c3aed, #4f46e5, #2563eb)',
-                        padding: '32px 32px 24px',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #4f46e5 100%)',
+                        padding: '32px 32px 28px',
                         color: 'white',
+                        position: 'relative',
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                        {/* Close button */}
+                        <button
+                            onClick={() => { if (onComplete) onComplete(); }}
+                            style={{
+                                position: 'absolute', top: '24px', right: '24px',
+                                background: 'rgba(255,255,255,0.15)', border: 'none',
+                                borderRadius: '10px', color: 'white', padding: '6px',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                        >
+                            <X size={18} />
+                        </button>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '4px', paddingRight: '40px' }}>
                             <div style={{
                                 width: '44px', height: '44px', borderRadius: '14px',
-                                background: 'rgba(255,255,255,0.2)', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center',
+                                background: 'rgba(255,255,255,0.2)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0,
                             }}>
-                                {step === 4 ? <CheckCircle size={24} /> : (step === 2 || step === 3) ? (step === 3 ? <Phone size={24} /> : <Mail size={24} />) : <Shield size={24} />}
+                                {step === 6 ? <CheckCircle size={22} /> : (step === 4 || step === 5) ? (step === 5 ? <Phone size={22} /> : <Mail size={22} />) : <Shield size={22} />}
                             </div>
                             <div>
-                                <h2 style={{ fontSize: '22px', fontWeight: 800, margin: 0 }}>
-                                    {step === 4 ? 'All Set!' : step === 3 ? 'Verify Phone' : step === 2 ? 'Verify Email' : 'Add Your Legacy Contact'}
+                                <h2 style={{ fontSize: '18px', fontWeight: 900, color: 'white', margin: 0, letterSpacing: '-0.02em' }}>
+                                    {step === 6 ? 'All Set!' : step === 5 ? 'Verify Phone' : step === 4 ? 'Verify Email' : step === 3 ? 'Vault Connection' : step === 2 ? 'Security Contact' : 'Nominee Identity'}
                                 </h2>
-                                <p style={{ fontSize: '13px', opacity: 0.8, margin: '4px 0 0', fontWeight: 500 }}>
-                                    {step === 4
-                                        ? 'Your nominee has been saved securely.'
-                                        : step === 3
-                                            ? `We sent a 6-digit code via WhatsApp to ${form.mobile}`
-                                            : step === 2
-                                                ? `We sent a 6-digit code to ${form.email}`
-                                                : 'Designate a trusted person as your vault contact.'}
+                                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: '3px 0 0', fontWeight: 500 }}>
+                                    {step === 6 ? 'Your nominee has been saved securely.' : step === 5 ? 'Security code sent via WhatsApp' : step === 4 ? 'Security code sent to email' : 'Designate a trusted person for vault recovery.'}
                                 </p>
                             </div>
                         </div>
-                        {/* Progress bar */}
-                        {step < 4 && (
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                                {[1, 2, 3].map(s => (
-                                    <div key={s} style={{
-                                        flex: 1, height: '4px', borderRadius: '2px',
-                                        background: s <= step ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)',
-                                        transition: 'all 0.3s ease',
-                                    }} />
-                                ))}
+
+                        {/* Progress Bar */}
+                        <div style={{ marginTop: '24px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.8 }}>Nominee Readiness</span>
+                                <span style={{ fontSize: '12px', fontWeight: 900 }}>{percentage}%</span>
                             </div>
-                        )}
+                            <div style={{ height: '4px', background: 'rgba(255,255,255,0.15)', borderRadius: '100px', overflow: 'hidden' }}>
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${percentage}%` }}
+                                    transition={{ duration: 0.5 }}
+                                    style={{ height: '100%', background: 'white', borderRadius: '100px' }}
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div style={{ padding: '28px 32px 32px' }}>
-                        {/* STEP 1: Nominee Details */}
-                        {step === 1 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                                {/* Full Name */}
-                                <div>
-                                    <label style={labelStyle}>Full Name</label>
-                                    <div style={inputWrapperStyle}>
-                                        <User size={18} style={{ color: '#9ca3af', marginRight: '10px', flexShrink: 0 }} />
-                                        <input
-                                            type="text"
-                                            placeholder="Enter nominee's full name"
-                                            value={form.full_name}
-                                            onChange={e => setForm({ ...form, full_name: e.target.value })}
-                                            style={inputStyle}
-                                        />
-                                    </div>
-                                    {errors.full_name && <span style={errStyle}>{errors.full_name}</span>}
-                                </div>
-
-                                {/* Email */}
-                                <div>
-                                    <label style={labelStyle}>Email Address</label>
-                                    <div style={inputWrapperStyle}>
-                                        <Mail size={18} style={{ color: '#9ca3af', marginRight: '10px', flexShrink: 0 }} />
-                                        <input
-                                            type="email"
-                                            placeholder="nominee@email.com"
-                                            value={form.email}
-                                            onChange={e => setForm({ ...form, email: e.target.value })}
-                                            style={inputStyle}
-                                        />
-                                    </div>
-                                    {errors.email && <span style={errStyle}>{errors.email}</span>}
-                                </div>
-
-                                {/* Phone Number */}
-                                <div>
-                                    <label style={labelStyle}>Phone Number</label>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <div style={{ ...inputWrapperStyle, width: '130px', flexShrink: 0, cursor: 'pointer', position: 'relative' }}>
-                                            <select
-                                                value={form.country_code}
-                                                onChange={e => setForm({ ...form, country_code: e.target.value })}
-                                                style={{
-                                                    ...inputStyle, appearance: 'none', cursor: 'pointer',
-                                                    paddingRight: '28px', background: 'transparent',
-                                                }}
-                                            >
-                                                {COUNTRY_CODES.map(cc => (
-                                                    <option key={cc.code} value={cc.code}>{cc.flag} {cc.code}</option>
-                                                ))}
-                                            </select>
-                                            <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
-                                        </div>
-                                        <div style={{ ...inputWrapperStyle, flex: 1 }}>
-                                            <Phone size={18} style={{ color: '#9ca3af', marginRight: '10px', flexShrink: 0 }} />
+                    <div style={{ padding: '24px 32px 32px' }}>
+                        <AnimatePresence mode="wait">
+                            {/* STEP 1: Identity */}
+                            {step === 1 && (
+                                <motion.div
+                                    key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                                    style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}
+                                >
+                                    <div>
+                                        <label style={labelStyle}>Full Name</label>
+                                        <div style={inputWrapperStyle}>
+                                            <User size={18} style={{ color: 'rgba(255,255,255,0.3)', marginRight: '10px' }} />
                                             <input
-                                                type="tel"
-                                                placeholder="Phone number"
-                                                value={form.mobile}
-                                                onChange={e => setForm({ ...form, mobile: e.target.value.replace(/\D/g, '') })}
+                                                type="text" placeholder="Enter nominee's full name"
+                                                value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })}
                                                 style={inputStyle}
                                             />
                                         </div>
+                                        {errors.full_name && <span style={errStyle}>{errors.full_name}</span>}
                                     </div>
-                                    {errors.mobile && <span style={errStyle}>{errors.mobile}</span>}
-                                </div>
-
-                                {/* Confirm Phone */}
-                                <div>
-                                    <label style={labelStyle}>Confirm Phone Number</label>
-                                    <div style={inputWrapperStyle}>
-                                        <Phone size={18} style={{ color: '#9ca3af', marginRight: '10px', flexShrink: 0 }} />
-                                        <input
-                                            type="tel"
-                                            placeholder="Re-enter phone number"
-                                            value={form.confirm_mobile}
-                                            onChange={e => setForm({ ...form, confirm_mobile: e.target.value.replace(/\D/g, '') })}
-                                            style={inputStyle}
-                                        />
+                                    <div>
+                                        <label style={labelStyle}>Email Address</label>
+                                        <div style={inputWrapperStyle}>
+                                            <Mail size={18} style={{ color: 'rgba(255,255,255,0.3)', marginRight: '10px' }} />
+                                            <input
+                                                type="email" placeholder="nominee@email.com"
+                                                value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                        {errors.email && <span style={errStyle}>{errors.email}</span>}
                                     </div>
-                                    {errors.confirm_mobile && <span style={errStyle}>{errors.confirm_mobile}</span>}
-                                </div>
+                                    <button onClick={handleNext} style={primaryBtnStyle}>
+                                        Continue <ArrowRight size={14} />
+                                    </button>
+                                </motion.div>
+                            )}
 
-                                {/* Relationship */}
-                                <div>
-                                    <label style={labelStyle}>Relationship</label>
-                                    <div style={{ ...inputWrapperStyle, position: 'relative' }}>
-                                        <Heart size={18} style={{ color: '#9ca3af', marginRight: '10px', flexShrink: 0 }} />
-                                        <select
-                                            value={form.relationship}
-                                            onChange={e => setForm({ ...form, relationship: e.target.value })}
-                                            style={{ ...inputStyle, appearance: 'none', cursor: 'pointer', paddingRight: '28px', background: 'transparent' }}
-                                        >
-                                            <option value="">Select relationship</option>
-                                            {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-                                        </select>
-                                        <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
+                            {/* STEP 2: Contact */}
+                            {step === 2 && (
+                                <motion.div
+                                    key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                                    style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}
+                                >
+                                    <div>
+                                        <label style={labelStyle}>Phone Number</label>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <div style={{ ...inputWrapperStyle, width: '120px', paddingRight: '10px' }}>
+                                                <select
+                                                    value={form.country_code} onChange={e => setForm({ ...form, country_code: e.target.value })}
+                                                    style={{ ...inputStyle, appearance: 'none', background: 'transparent' }}
+                                                >
+                                                    {COUNTRY_CODES.map(cc => <option key={cc.code} value={cc.code} style={{ background: '#121220' }}>{cc.flag} {cc.code}</option>)}
+                                                </select>
+                                                <ChevronDown size={14} style={{ opacity: 0.3 }} />
+                                            </div>
+                                            <div style={{ ...inputWrapperStyle, flex: 1 }}>
+                                                <Phone size={18} style={{ color: 'rgba(255,255,255,0.3)', marginRight: '10px' }} />
+                                                <input
+                                                    type="tel" placeholder="Phone number"
+                                                    value={form.mobile} onChange={e => setForm({ ...form, mobile: e.target.value.replace(/\D/g, '') })}
+                                                    style={inputStyle}
+                                                />
+                                            </div>
+                                        </div>
+                                        {errors.mobile && <span style={errStyle}>{errors.mobile}</span>}
                                     </div>
-                                    {errors.relationship && <span style={errStyle}>{errors.relationship}</span>}
-                                </div>
+                                    <div>
+                                        <label style={labelStyle}>Confirm Phone Number</label>
+                                        <div style={inputWrapperStyle}>
+                                            <Phone size={18} style={{ color: 'rgba(255,255,255,0.3)', marginRight: '10px' }} />
+                                            <input
+                                                type="tel" placeholder="Re-enter phone number"
+                                                value={form.confirm_mobile} onChange={e => setForm({ ...form, confirm_mobile: e.target.value.replace(/\D/g, '') })}
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                        {errors.confirm_mobile && <span style={errStyle}>{errors.confirm_mobile}</span>}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button onClick={() => setStep(1)} style={secondaryBtnStyle}><ArrowLeft size={14} /> Back</button>
+                                        <button onClick={handleNext} style={{ ...primaryBtnStyle, flex: 1 }}>Continue <ArrowRight size={14} /></button>
+                                    </div>
+                                </motion.div>
+                            )}
 
-                                {/* Submit */}
-                                <button
-                                    onClick={handleSendOTP}
-                                    disabled={loading}
-                                    style={{
-                                        width: '100%', padding: '14px', borderRadius: '14px', border: 'none',
-                                        background: loading ? '#a78bfa' : 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                                        color: 'white', fontSize: '15px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-                                        boxShadow: '0 4px 14px rgba(124, 58, 237, 0.35)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                        marginTop: '6px',
-                                    }}
+                            {/* STEP 3: Relationship */}
+                            {step === 3 && (
+                                <motion.div
+                                    key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                                    style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}
                                 >
-                                    {loading ? <><Loader2 size={18} className="animate-spin" /> Sending OTP...</> : <>Verify Email & Continue <ArrowRight size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /></>}
-                                </button>
-                            </div>
-                        )}
+                                    <div>
+                                        <label style={labelStyle}>Relationship</label>
+                                        <div style={inputWrapperStyle}>
+                                            <Heart size={18} style={{ color: 'rgba(255,255,255,0.3)', marginRight: '10px' }} />
+                                            <select
+                                                value={form.relationship} onChange={e => setForm({ ...form, relationship: e.target.value })}
+                                                style={{ ...inputStyle, appearance: 'none', background: 'transparent' }}
+                                            >
+                                                <option value="" style={{ background: '#121220' }}>Select relationship</option>
+                                                {RELATIONSHIPS.map(r => <option key={r} value={r} style={{ background: '#121220' }}>{r}</option>)}
+                                            </select>
+                                            <ChevronDown size={14} style={{ opacity: 0.3 }} />
+                                        </div>
+                                        {errors.relationship && <span style={errStyle}>{errors.relationship}</span>}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button onClick={() => setStep(2)} style={secondaryBtnStyle}><ArrowLeft size={14} /> Back</button>
+                                        <button onClick={handleNext} disabled={loading} style={{ ...primaryBtnStyle, flex: 1 }}>
+                                            {loading ? <Loader2 size={18} className="animate-spin" /> : <>Verify & Complete <ChevronDown size={14} style={{ transform: 'rotate(-90deg)' }} /></>}
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )}
 
-                        {/* STEP 2: Email OTP Verification */}
-                        {step === 2 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
-                                <p style={{ fontSize: '14px', color: '#6b7280', textAlign: 'center', lineHeight: 1.6, fontWeight: 500 }}>
-                                    Check the <strong>backend console</strong> for the 6-digit OTP code sent to your email.
-                                </p>
-
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                    {Array.from({ length: 6 }, (_, i) => (
-                                        <input
-                                            key={i}
-                                            type="text"
-                                            maxLength={1}
-                                            value={otp[i] || ''}
-                                            onChange={e => {
-                                                const val = e.target.value.replace(/\D/g, '');
-                                                const newOtp = otp.split('');
-                                                newOtp[i] = val;
-                                                setOtp(newOtp.join(''));
-                                                if (val && e.target.nextElementSibling) e.target.nextElementSibling.focus();
-                                            }}
-                                            onKeyDown={e => {
-                                                if (e.key === 'Backspace' && !otp[i] && e.target.previousElementSibling) {
-                                                    e.target.previousElementSibling.focus();
-                                                }
-                                            }}
-                                            style={{
-                                                width: '50px', height: '56px', textAlign: 'center',
-                                                fontSize: '22px', fontWeight: 800,
-                                                border: '2px solid #e5e7eb', borderRadius: '14px',
-                                                outline: 'none', transition: 'all 0.2s',
-                                                color: '#1f2937',
-                                            }}
-                                            onFocus={e => { e.target.style.borderColor = '#7c3aed'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)'; }}
-                                            onBlur={e => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
-                                        />
-                                    ))}
-                                </div>
-
-                                {otpError && <span style={{ ...errStyle, textAlign: 'center' }}>{otpError}</span>}
-
-                                <button
-                                    onClick={handleVerifyEmailOTP}
-                                    disabled={loading || otp.length !== 6}
-                                    style={{
-                                        width: '100%', padding: '14px', borderRadius: '14px', border: 'none',
-                                        background: loading || otp.length !== 6 ? '#a78bfa' : 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                                        color: 'white', fontSize: '15px', fontWeight: 700,
-                                        cursor: loading || otp.length !== 6 ? 'not-allowed' : 'pointer',
-                                        boxShadow: '0 4px 14px rgba(124, 58, 237, 0.35)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                    }}
+                            {/* STEP 4: Email OTP */}
+                            {step === 4 && (
+                                <motion.div
+                                    key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                    style={{ display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center' }}
                                 >
-                                    {loading ? <><Loader2 size={18} className="animate-spin" /> Verifying...</> : <>Verify Email & Next <ArrowRight size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /></>}
-                                </button>
-
-                                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                                    <button onClick={() => { setStep(1); setOtp(''); setOtpError(''); }} style={linkBtnStyle}>
-                                        <ArrowLeft size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> Back
+                                    <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', fontWeight: 500 }}>Check your console for the security code sent to your email.</p>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        {Array.from({ length: 6 }).map((_, i) => (
+                                            <input
+                                                key={i} type="text" maxLength={1} value={otp[i] || ''}
+                                                onChange={e => {
+                                                    const val = e.target.value.replace(/\D/g, '');
+                                                    const newOtp = otp.split(''); newOtp[i] = val; setOtp(newOtp.join(''));
+                                                    if (val && e.target.nextElementSibling) e.target.nextElementSibling.focus();
+                                                }}
+                                                onKeyDown={e => { if (e.key === 'Backspace' && !otp[i] && e.target.previousElementSibling) e.target.previousElementSibling.focus(); }}
+                                                style={otpInputStyle}
+                                            />
+                                        ))}
+                                    </div>
+                                    {otpError && <span style={errStyle}>{otpError}</span>}
+                                    <button onClick={handleVerifyEmailOTP} disabled={loading || otp.length !== 6} style={primaryBtnStyle}>
+                                        {loading ? <Loader2 size={18} className="animate-spin" /> : 'Verify Email'}
                                     </button>
-                                    <button onClick={handleResendOTP} disabled={loading} style={linkBtnStyle}>
-                                        Resend OTP
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                                    <button onClick={handleResendOTP} style={linkBtnStyle}>Resend Code</button>
+                                </motion.div>
+                            )}
 
-                        {/* STEP 3: Phone OTP Verification */}
-                        {step === 3 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
-                                <p style={{ fontSize: '14px', color: '#6b7280', textAlign: 'center', lineHeight: 1.6, fontWeight: 500 }}>
-                                    Enter the 6-digit OTP code sent via WhatsApp to verify phone.
-                                </p>
-
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                    {Array.from({ length: 6 }, (_, i) => (
-                                        <input
-                                            key={i}
-                                            type="text"
-                                            maxLength={1}
-                                            value={otp[i] || ''}
-                                            onChange={e => {
-                                                const val = e.target.value.replace(/\D/g, '');
-                                                const newOtp = otp.split('');
-                                                newOtp[i] = val;
-                                                setOtp(newOtp.join(''));
-                                                if (val && e.target.nextElementSibling) e.target.nextElementSibling.focus();
-                                            }}
-                                            onKeyDown={e => {
-                                                if (e.key === 'Backspace' && !otp[i] && e.target.previousElementSibling) {
-                                                    e.target.previousElementSibling.focus();
-                                                }
-                                            }}
-                                            style={{
-                                                width: '50px', height: '56px', textAlign: 'center',
-                                                fontSize: '22px', fontWeight: 800,
-                                                border: '2px solid #e5e7eb', borderRadius: '14px',
-                                                outline: 'none', transition: 'all 0.2s',
-                                                color: '#1f2937',
-                                            }}
-                                            onFocus={e => { e.target.style.borderColor = '#7c3aed'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)'; }}
-                                            onBlur={e => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
-                                        />
-                                    ))}
-                                </div>
-
-                                {otpError && <span style={{ ...errStyle, textAlign: 'center' }}>{otpError}</span>}
-
-                                <button
-                                    onClick={handleVerifyPhoneOTP}
-                                    disabled={loading || otp.length !== 6}
-                                    style={{
-                                        width: '100%', padding: '14px', borderRadius: '14px', border: 'none',
-                                        background: loading || otp.length !== 6 ? '#a78bfa' : 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                                        color: 'white', fontSize: '15px', fontWeight: 700,
-                                        cursor: loading || otp.length !== 6 ? 'not-allowed' : 'pointer',
-                                        boxShadow: '0 4px 14px rgba(124, 58, 237, 0.35)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                    }}
+                            {/* STEP 5: Phone OTP */}
+                            {step === 5 && (
+                                <motion.div
+                                    key="step5" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                    style={{ display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center' }}
                                 >
-                                    {loading ? <><Loader2 size={18} className="animate-spin" /> Verifying & Saving...</> : 'Verify Phone & Save Nominee'}
-                                </button>
-
-                                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                                    <button onClick={handleResendOTP} disabled={loading} style={linkBtnStyle}>
-                                        Resend OTP
+                                    <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', fontWeight: 500 }}>Enter the code sent via WhatsApp to verify phone.</p>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        {Array.from({ length: 6 }).map((_, i) => (
+                                            <input
+                                                key={i} type="text" maxLength={1} value={otp[i] || ''}
+                                                onChange={e => {
+                                                    const val = e.target.value.replace(/\D/g, '');
+                                                    const newOtp = otp.split(''); newOtp[i] = val; setOtp(newOtp.join(''));
+                                                    if (val && e.target.nextElementSibling) e.target.nextElementSibling.focus();
+                                                }}
+                                                onKeyDown={e => { if (e.key === 'Backspace' && !otp[i] && e.target.previousElementSibling) e.target.previousElementSibling.focus(); }}
+                                                style={otpInputStyle}
+                                            />
+                                        ))}
+                                    </div>
+                                    {otpError && <span style={errStyle}>{otpError}</span>}
+                                    <button onClick={handleVerifyPhoneOTP} disabled={loading || otp.length !== 6} style={primaryBtnStyle}>
+                                        {loading ? <Loader2 size={18} className="animate-spin" /> : 'Confirm & Save'}
                                     </button>
-                                </div>
-                            </div>
-                        )}
+                                    <button onClick={handleResendOTP} style={linkBtnStyle}>Resend Code</button>
+                                </motion.div>
+                            )}
 
-                        {/* STEP 4: Success */}
-                        {step === 4 && (
-                            <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                                <div style={{
-                                    width: '80px', height: '80px', borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    margin: '0 auto 20px', boxShadow: '0 8px 30px rgba(16, 185, 129, 0.3)',
-                                }}>
-                                    <CheckCircle size={40} color="white" />
-                                </div>
-                                <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#1f2937', margin: '0 0 8px' }}>
-                                    Nominee Saved!
-                                </h3>
-                                <p style={{ fontSize: '14px', color: '#6b7280', fontWeight: 500 }}>
-                                    {form.full_name} has been registered as your legacy contact.
-                                </p>
-                            </div>
-                        )}
+                            {/* STEP 6: Success */}
+                            {step === 6 && (
+                                <motion.div
+                                    key="step6" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                                    style={{ textAlign: 'center', padding: '24px 0 12px' }}
+                                >
+                                    <div style={successIconStyle}>
+                                        <CheckCircle size={38} color="white" />
+                                    </div>
+                                    <h3 style={{ fontSize: '22px', fontWeight: 900, color: 'white', letterSpacing: '-0.02em', margin: '0 0 8px' }}>Nominee Saved!</h3>
+                                    <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{form.full_name} is now your legacy contact.</p>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </motion.div>
             </AnimatePresence>
-        </div>
+        </div >
     );
 };
 
-// Shared styles
+// Styles
 const labelStyle = {
-    display: 'block', fontSize: '11px', fontWeight: 700,
-    color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em',
-    marginBottom: '6px', marginLeft: '2px',
+    display: 'block', fontSize: '11px', fontWeight: 800,
+    color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em',
+    marginBottom: '6px', marginLeft: '4px',
 };
-
 const inputWrapperStyle = {
     display: 'flex', alignItems: 'center',
-    border: '2px solid #e5e7eb', borderRadius: '14px',
-    padding: '10px 14px', transition: 'all 0.2s',
-    background: '#fafafa',
+    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px',
+    padding: '12px 14px', background: 'rgba(255,255,255,0.04)', transition: 'all 0.2s',
 };
-
 const inputStyle = {
     flex: 1, border: 'none', outline: 'none',
-    fontSize: '15px', fontWeight: 600, color: '#1f2937',
-    background: 'transparent',
+    fontSize: '14px', fontWeight: 500, color: 'white', background: 'transparent',
 };
-
 const errStyle = {
-    fontSize: '12px', color: '#ef4444', fontWeight: 600,
-    marginTop: '4px', display: 'block', marginLeft: '2px',
+    fontSize: '11px', color: '#f87171', fontWeight: 700, marginTop: '6px', marginLeft: '4px',
 };
-
+const primaryBtnStyle = {
+    width: '100%', padding: '16px', borderRadius: '16px', border: 'none',
+    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+    color: 'white', fontSize: '14px', fontWeight: 800, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+    boxShadow: '0 8px 32px rgba(99,102,241,0.3)', transition: 'all 0.2s',
+};
+const secondaryBtnStyle = {
+    padding: '16px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)',
+    background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)',
+    fontSize: '14px', fontWeight: 800, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: '8px',
+};
+const otpInputStyle = {
+    width: '56px', height: '64px', textAlign: 'center', fontSize: '24px', fontWeight: 800,
+    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', color: 'white',
+    background: 'rgba(255,255,255,0.04)', outline: 'none',
+};
+const successIconStyle = {
+    width: '80px', height: '80px', borderRadius: '50%',
+    background: 'linear-gradient(135deg, #10b981, #059669)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    margin: '0 auto 24px', boxShadow: '0 8px 32px rgba(16, 185, 129, 0.3)',
+};
 const linkBtnStyle = {
-    background: 'none', border: 'none', color: '#7c3aed',
-    fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-    padding: '4px 0',
+    background: 'none', border: 'none', color: '#818cf8', fontSize: '13px',
+    fontWeight: 700, cursor: 'pointer', marginTop: '4px',
 };
 
 export default NomineeSetupModal;

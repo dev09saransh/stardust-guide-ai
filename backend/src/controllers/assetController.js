@@ -25,10 +25,34 @@ const addAsset = async (req, res) => {
 // @desc    Get all assets for a user
 // @route   GET /api/assets
 const getAssets = async (req, res) => {
-    const userId = req.user.id;
+    let userId = req.user.id;
     const { category } = req.query;
+    const vaultContext = req.header('x-vault-context');
 
+    console.log(`[GET ASSETS] Context: ${vaultContext}, User: ${req.user.id}`);
     try {
+        if (vaultContext && vaultContext !== 'null') {
+            const targetUserId = parseInt(vaultContext);
+            // Verify access: current user must be a nominee for targetUserId AND targetUserId must be in GREEN status
+            const [accessRows] = await db.execute(`
+                SELECT u.user_id 
+                FROM users u 
+                JOIN nominees n ON u.user_id = n.user_id 
+                WHERE u.user_id = ? AND n.linked_user_id = ? AND u.succession_status = 'GREEN'
+            `, [targetUserId, req.user.id]);
+
+            console.log(`[GET ASSETS] targetUserId=${targetUserId}, req.user.id=${req.user.id}, accessRows.length=${accessRows.length}`);
+
+            if (accessRows.length > 0) {
+                userId = targetUserId;
+            } else if (targetUserId !== req.user.id) {
+                console.log(`[GET ASSETS] Unauthorized. targetUserId !== req.user.id`);
+                return res.status(403).json({ message: 'Unauthorized access to this vault' });
+            }
+        }
+
+        console.log(`[GET ASSETS] Preparing query for userId=${userId}, category=${category}`);
+
         let query = 'SELECT * FROM assets WHERE user_id = ?';
         let params = [userId];
 
