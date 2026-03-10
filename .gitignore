@@ -14,7 +14,7 @@ backend/.env
 backend/_env
 frontend/.env
 .env
-**/ .env
+**/.env
 **/.env.local
 **/.env.*.local
 

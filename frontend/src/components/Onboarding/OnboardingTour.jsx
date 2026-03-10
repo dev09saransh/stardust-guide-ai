@@ -191,7 +191,7 @@ const OnboardingTour = ({ user, onComplete, onStepChange }) => {
         if (user?.token) {
             try {
                 await axios.post(
-                    'http://localhost:5001/api/auth/complete-onboarding',
+                    'http://13.48.25.209:5001/api/auth/complete-onboarding',
                     {},
                     { headers: { Authorization: `Bearer ${user.token}` } }
                 );

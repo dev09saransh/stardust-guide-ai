@@ -40,7 +40,7 @@ const ManualClaimModal = ({ isOpen, onClose, onVerified, user }) => {
         try {
             // Mocking the API call for now to align with existing frontend flows
             // In a real scenario, this would call the backend to verify the claim code and email
-            const response = await axios.post('http://localhost:5001/api/succession/initiate-claim', {
+            const response = await axios.post('http://13.48.25.209:5001/api/succession/initiate-claim', {
                 ownerEmail: formData.ownerEmail,
                 claimCode: formData.claimCode
             });
@@ -63,7 +63,7 @@ const ManualClaimModal = ({ isOpen, onClose, onVerified, user }) => {
         const code = otp.join('');
 
         try {
-            const response = await axios.post('http://localhost:5001/api/succession/verify-claim-otp', {
+            const response = await axios.post('http://13.48.25.209:5001/api/succession/verify-claim-otp', {
                 ownerEmail: formData.ownerEmail,
                 otp: code
             });

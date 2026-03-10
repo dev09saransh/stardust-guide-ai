@@ -12,7 +12,7 @@ const DataSyncModal = ({ isOpen, onClose, onSyncComplete, userToken, syncCategor
     const [results, setResults] = useState([]);
     const [errorMsg, setErrorMsg] = useState('');
 
-    const API_BASE = 'http://localhost:5001/api/financial';
+    const API_BASE = 'http://13.48.25.209:5001/api/financial';
     const authHeaders = { Authorization: `Bearer ${userToken}` };
 
     const handleInitiateSync = async () => {

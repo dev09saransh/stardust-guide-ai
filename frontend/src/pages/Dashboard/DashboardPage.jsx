@@ -507,7 +507,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const API = 'http://localhost:5001/api';
+  const API = 'http://13.48.25.209:5001/api';
   const authHeaders = useMemo(() => {
     const headers = { Authorization: `Bearer ${user?.token || ''}` };
     if (activeAccount?.user_id) {

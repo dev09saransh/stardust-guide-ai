@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const API = process.env.REACT_APP_API_URL || 'http://13.48.25.209:5001/api';
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);

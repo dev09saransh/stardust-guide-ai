@@ -29,7 +29,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
         const activeToken = user?.token || localStorage.getItem('stardust_token');
         setLoading(true);
         try {
-            const res = await axios.get('http://localhost:5001/api/admin/users', {
+            const res = await axios.get('http://13.48.25.209:5001/api/admin/users', {
                 headers: { Authorization: `Bearer ${activeToken}` }
             });
             setUsers(res.data);
@@ -49,7 +49,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
         }
         setLoading(true);
         try {
-            const res = await axios.get('http://localhost:5001/api/admin/stats', {
+            const res = await axios.get('http://13.48.25.209:5001/api/admin/stats', {
                 headers: { Authorization: `Bearer ${activeToken}` }
             });
             setStats(res.data);
@@ -65,7 +65,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
         const activeToken = user?.token || localStorage.getItem('stardust_token');
         setLoading(true);
         try {
-            const res = await axios.get('http://localhost:5001/api/admin/successions', {
+            const res = await axios.get('http://13.48.25.209:5001/api/admin/successions', {
                 headers: { Authorization: `Bearer ${activeToken}` }
             });
             setSuccessionRequests(res.data);
@@ -86,7 +86,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
         if (!window.confirm('CRITICAL ACTION: Are you sure you want to PERMANENTLY delete this user and all their vault assets?')) return;
         const activeToken = user?.token || localStorage.getItem('stardust_token');
         try {
-            await axios.delete(`http://localhost:5001/api/admin/users/${userId}`, {
+            await axios.delete(`http://13.48.25.209:5001/api/admin/users/${userId}`, {
                 headers: { Authorization: `Bearer ${activeToken}` }
             });
             fetchUsers();
@@ -100,7 +100,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
     const handleSuccessionAction = async (requestId, action) => {
         const activeToken = user?.token || localStorage.getItem('stardust_token');
         try {
-            await axios.post('http://localhost:5001/api/admin/handle-succession', {
+            await axios.post('http://13.48.25.209:5001/api/admin/handle-succession', {
                 requestId,
                 action
             }, {
@@ -299,7 +299,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
                                             </div>
                                         </div>
                                         <div className="w-full md:w-64 flex flex-col gap-3">
-                                            <a href={`http://localhost:5001${req.proof_url}`} target="_blank" rel="noreferrer" className="w-full py-3 bg-slate-900 text-white rounded-xl flex items-center justify-center space-x-2 text-xs font-bold uppercase tracking-widest">
+                                            <a href={`http://13.48.25.209:5001${req.proof_url}`} target="_blank" rel="noreferrer" className="w-full py-3 bg-slate-900 text-white rounded-xl flex items-center justify-center space-x-2 text-xs font-bold uppercase tracking-widest">
                                                 <FileSearch size={16} /> <span>Review Evidence</span>
                                             </a>
                                             <div className="flex gap-2">

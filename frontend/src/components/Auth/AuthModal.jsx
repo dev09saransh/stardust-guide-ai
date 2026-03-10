@@ -4,7 +4,7 @@ import { Shield, User, Mail, Lock, Phone, ArrowRight, X, AlertCircle, Eye, EyeOf
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 
-const API = process.env.REACT_APP_API_BASE_URL || 'http://13.48.25.209:5000/api';
+const API = process.env.REACT_APP_API_BASE_URL || 'http://13.48.25.209:5001/api';
 
 const AuthModal = () => {
     const { showAuthModal, closeAuthModal, authModalTab, setAuthModalTab, login, register, showToast } = useAuth();

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Key, Mail, Lock, AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, X } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://13.48.25.209:5000/api/auth';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://13.48.25.209:5001/api/auth';
 
 const ForgotPasswordPage = ({ onBackToLogin }) => {
     const [step, setStep] = useState(1); // 1: Identify, 2: OTP, 3: Reset, 4: Success

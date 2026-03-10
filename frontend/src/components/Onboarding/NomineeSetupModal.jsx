@@ -36,7 +36,7 @@ const NomineeSetupModal = ({ user, onComplete }) => {
     const [loading, setLoading] = useState(false);
     const [otpError, setOtpError] = useState('');
 
-    const API = 'http://localhost:5001/api/auth';
+    const API = 'http://13.48.25.209:5001/api/auth';
     const headers = { Authorization: `Bearer ${user.token}` };
 
     const validateStep = (currentStep) => {

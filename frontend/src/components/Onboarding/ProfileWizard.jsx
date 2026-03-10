@@ -4,7 +4,7 @@ import { User, Calendar, Users, ArrowRight, Check, X } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'http://localhost:5001/api';
+const API = 'http://13.48.25.209:5001/api';
 
 const steps = [
     { id: 'name', emoji: '👋', question: "What's your full name?", subtitle: 'This will appear across your vault' },

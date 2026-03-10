@@ -5,7 +5,7 @@ import { Shield, CheckCircle, Loader2, X } from 'lucide-react';
 import ProfileProgressBar from './ProfileProgressBar';
 import ProfileStepCarousel from './ProfileStepCarousel';
 
-const API = 'http://localhost:5001/api/auth';
+const API = 'http://13.48.25.209:5001/api/auth';
 
 const TOTAL_FIELDS = [
     'full_name', 'email', 'mobile', 'address', 'gender', 'dob'

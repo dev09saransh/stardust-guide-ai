@@ -1,0 +1,28 @@
+PORT=5001
+DB_HOST=your-rds-endpoint.rds.amazonaws.com
+DB_USER=admin
+DB_PASSWORD=your_password
+DB_NAME=stardust
+JWT_SECRET=stardust_vault_ultra_secret_2026
+JWT_REFRESH_SECRET=stardust_refresh_vault_2026
+BCRYPT_ROUNDS=12
+NODE_ENV=production
+FRONTEND_URL=http://13.48.25.209:3000
+
+# Twilio Config
+TWILIO_ACCOUNT_SID=your_sid
+TWILIO_AUTH_TOKEN=your_token
+TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
+TWILIO_CONTENT_SID=your_content_sid
+
+# Email Config (Resend)
+RESEND_API_KEY=your_resend_key
+
+# Setu AA Config
+SETU_CLIENT_ID=your_setu_id
+SETU_CLIENT_SECRET=your_setu_secret
+SETU_APP_ID=your_setu_app_id
+SETU_AA_BASE_URL=https://fiu-uat.setu.co
+
+# AI Service
+GEMINI_API_KEY=your_gemini_key

@@ -11,7 +11,7 @@ const LoginAuditTable = ({ mini = false }) => {
         const fetchLogs = async () => {
             try {
                 const token = localStorage.getItem('stardust_token');
-                const res = await axios.get('http://localhost:5001/api/auth/audit-logs', {
+                const res = await axios.get('http://13.48.25.209:5001/api/auth/audit-logs', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setLogs(mini ? res.data.slice(0, 5) : res.data);
