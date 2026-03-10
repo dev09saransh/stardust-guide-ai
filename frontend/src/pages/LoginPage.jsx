@@ -22,6 +22,8 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' });
 
+  const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://13.48.25.209:5000/api/auth';
+
   const showToast = (message, type = 'success') => {
     setToast({ isVisible: true, message, type });
     setTimeout(() => setToast(prev => ({ ...prev, isVisible: false })), 4000);
@@ -33,7 +35,7 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
     setError('');
 
     try {
-      const response = await axios.post('http://127.0.0.1:5001/api/auth/login', {
+      const response = await axios.post(`${API_BASE}/login`, {
         identifier: formData.email,
         password: formData.password
       });
@@ -57,7 +59,7 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
     setError('');
 
     try {
-      const response = await axios.post('http://127.0.0.1:5001/api/auth/verify-otp', {
+      const response = await axios.post(`${API_BASE}/verify-otp`, {
         userId: loginDetails.userId,
         otp: otpCode
       });
@@ -77,7 +79,7 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post('http://127.0.0.1:5001/api/auth/recovery/verify', {
+      const res = await axios.post(`${API_BASE}/recovery/verify`, {
         email: recoveryEmail,
         answers: recoveryAnswers
       });
@@ -95,7 +97,7 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
     setLoading(true);
     setError('');
     try {
-      await axios.post('http://127.0.0.1:5001/api/auth/recovery/reset', {
+      await axios.post(`${API_BASE}/recovery/reset`, {
         resetToken,
         newPassword
       });

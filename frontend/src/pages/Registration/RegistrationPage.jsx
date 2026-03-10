@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Shield, User, Mail, Lock, Phone, ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://13.48.25.209:5000/api/auth';
+
 const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -40,7 +42,7 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
   React.useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        const res = await axios.get('http://127.0.0.1:5001/api/auth/questions');
+        const res = await axios.get(`${API_BASE}/questions`);
         setQuestions(res.data);
       } catch (err) {
         console.error('Failed to fetch questions');
@@ -66,7 +68,7 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
     setLoading(true);
     try {
       const fullPhone = `${countryCode}${formData.phone.replace(/\D/g, '')}`;
-      const response = await axios.post('http://127.0.0.1:5001/api/auth/register', {
+      const response = await axios.post(`${API_BASE}/register`, {
         full_name: formData.name,
         email: formData.email,
         mobile: fullPhone,
@@ -94,7 +96,7 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
     setError('');
 
     try {
-      const response = await axios.post('http://127.0.0.1:5001/api/auth/verify-otp', {
+      const response = await axios.post(`${API_BASE}/verify-otp`, {
         userId: regDetails.userId,
         otp: otpCode
       });

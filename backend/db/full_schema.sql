@@ -1,3 +1,4 @@
+
 -- 🌌 STARDUST FINANCIAL VAULT - FULL DATABASE SCHEMA
 -- Engine: InnoDB | Charset: utf8mb4
 

@@ -3,7 +3,8 @@ const fs = require('fs');
 const multer = require('multer');
 
 // Storage config
-const uploadsDir = path.join(__dirname, '../../uploads');
+// Use a runtime directory outside the pkg snapshot to avoid mkdir errors in packaged binary
+const uploadsDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const storage = multer.diskStorage({
