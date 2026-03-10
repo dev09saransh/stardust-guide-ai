@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Shield, User, Mail, Lock, Phone, ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://13.48.25.209:5001/api/auth';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://13.48.25.209:5001/api/auth';
 
 const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
   const [step, setStep] = useState(1);

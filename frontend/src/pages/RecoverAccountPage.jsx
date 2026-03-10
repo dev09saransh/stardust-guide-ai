@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API = process.env.REACT_APP_API_BASE_URL || 'http://13.48.25.209:5001/api/auth';
+const API = process.env.REACT_APP_API_URL || 'http://13.48.25.209:5001/api/auth';
 
 const RecoverAccountPage = ({ onBackToLogin }) => {
     // Steps: 1=Identify, 2=Choose OTP method, 3=Enter OTP, 4=Security Questions, 5=Update Account, 6=Success

@@ -22,7 +22,7 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' });
 
-  const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://13.48.25.209:5001/api/auth';
+  const API_BASE = process.env.REACT_APP_API_URL || 'http://13.48.25.209:5001/api/auth';
 
   const showToast = (message, type = 'success') => {
     setToast({ isVisible: true, message, type });
