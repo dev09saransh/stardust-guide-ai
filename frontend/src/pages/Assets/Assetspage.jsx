@@ -41,7 +41,7 @@ const Assetspage = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
       <Navigation />
-      
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -69,17 +69,17 @@ const Assetspage = () => {
                 </div>
                 <span className="text-sm text-gray-500">{asset.dateAdded}</span>
               </div>
-              
+
               <h3 className="text-xl font-bold text-gray-900 mb-1">{asset.name}</h3>
               <p className="text-gray-500 text-sm mb-3">{asset.type}</p>
-              
+
               <div className="bg-blue-50 rounded-lg p-3 mb-4">
                 <p className="text-sm text-gray-600">Value</p>
                 <p className="text-2xl font-bold text-gray-900">{asset.value}</p>
               </div>
-              
+
               <p className="text-gray-600 text-sm mb-4">{asset.description}</p>
-              
+
               <div className="flex space-x-3">
                 <button className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
                   Edit

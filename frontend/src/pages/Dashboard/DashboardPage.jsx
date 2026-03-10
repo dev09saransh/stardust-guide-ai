@@ -24,6 +24,7 @@ import {
   LogIn,
   LogOut,
   Mail,
+  Menu,
   Moon,
   Plus,
   RefreshCw,
@@ -45,12 +46,58 @@ import CategoryPicker from '../../components/common/CategoryPicker';
 import OnboardingTour from '../../components/Onboarding/OnboardingTour';
 import NomineeSetupModal from '../../components/Onboarding/NomineeSetupModal';
 import ProfileCompletionModal from '../../components/profile/ProfileCompletionModal';
-import { VaultConfirm, VaultToast } from '../../components/common/VaultUI';
+import { VaultConfirm } from '../../components/common/VaultUI';
 import DataSyncModal from '../../components/Dashboard/DataSyncModal';
 import FirstAssetWizard, { CelebrationScreen } from '../../components/Onboarding/FirstAssetWizard';
 import ManualClaimModal from '../../components/Dashboard/ManualClaimModal';
 import LoginAuditTable from '../../components/Dashboard/LoginAuditTable';
 import AddAccountModal from '../../components/Dashboard/AddAccountModal';
+import MobileNav from '../../components/Navigation/MobileNav';
+
+const SearchOverlay = ({ isOpen, onClose, searchQuery, setSearchQuery }) => (
+  <AnimatePresence>
+    {isOpen && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[110] bg-[var(--bg-app)]/95 backdrop-blur-xl p-6 md:hidden"
+      >
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-black text-[var(--text-primary)]">Search Vault</h2>
+          <button onClick={onClose} className="p-2 text-[var(--text-secondary)]">
+            <Plus className="rotate-45" size={28} />
+          </button>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={20} />
+          <input
+            autoFocus
+            type="text"
+            placeholder="Search assets, documents..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-12 pr-4 py-4 bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-lg font-medium text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+          />
+        </div>
+        <div className="mt-8">
+          <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-4">Quick Filters</p>
+          <div className="flex flex-wrap gap-2">
+            {['Cards', 'Banking', 'Legal', 'Passwords'].map(filter => (
+              <button
+                key={filter}
+                onClick={() => { setSearchQuery(filter); }}
+                className="px-4 py-2 rounded-xl bg-[var(--surface-glass)] border border-[var(--border)] text-sm font-bold text-[var(--text-primary)]"
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 const DigitalCard = ({ card, onClick, userName }) => {
   const bankGradients = {
@@ -68,7 +115,7 @@ const DigitalCard = ({ card, onClick, userName }) => {
     <motion.div
       whileHover={{ y: -10, rotateX: 5, rotateY: -5, scale: 1.02 }}
       onClick={() => onClick && onClick(card)}
-      className={`relative w-full aspect-[1.586/1] rounded-[1.25rem] bg-gradient-to-br ${gradient} p-6 shadow-2xl cursor-pointer overflow-hidden group border border-white/10`}
+      className={`relative w-full aspect-[1.586/1] rounded-[1.25rem] bg-gradient-to-br ${gradient} p-4 md:p-6 shadow-2xl cursor-pointer overflow-hidden group border border-white/10`}
     >
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
       <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -translate-y-16 translate-x-16" />
@@ -77,7 +124,7 @@ const DigitalCard = ({ card, onClick, userName }) => {
         <div className="flex justify-between items-start">
           <div className="text-white/90">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">{card.metadata?.bank || 'Vault Card'}</p>
-            <h4 className="text-lg font-black tracking-tight leading-none italic uppercase">{card.metadata?.variant || 'Standard'}</h4>
+            <h4 className="text-base md:text-lg font-black tracking-tight leading-none italic uppercase">{card.metadata?.variant || 'Standard'}</h4>
           </div>
           <div className="w-10 h-8 bg-amber-400/20 rounded-md border border-amber-400/30 flex items-center justify-center overflow-hidden">
             <div className="w-6 h-4 bg-amber-400/40 rounded-sm relative">
@@ -247,7 +294,7 @@ const AssetDetailOverlay = ({ asset: card, onClose, fetchAIStats, benefitsLoadin
 
 const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   const { theme, toggleTheme } = useTheme();
-  const { isOnboarded, ...auth } = useAuth();
+  const { isOnboarded, showToast, ...auth } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showPassword, setShowPassword] = useState({});
   const [showFirstAssetWizard, setShowFirstAssetWizard] = useState(false);
@@ -283,6 +330,151 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   const [inheritedAccounts, setInheritedAccounts] = useState([]);
   const [activeAccount, setActiveAccount] = useState(null); // null means own account
   const [showVaultID, setShowVaultID] = useState(false);
+  const [vaultPolicyForm, setVaultPolicyForm] = useState({ inactivity_trigger_period: 9, reminder_interval: 3 });
+  const [vaultPolicySaving, setVaultPolicySaving] = useState(false);
+  const [vaultPolicyEditing, setVaultPolicyEditing] = useState(false);
+  const [showSearchOverlay, setShowSearchOverlay] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const renderSidebarContent = () => (
+    <>
+      <div className={`flex items-center mb-10 px-2 relative z-10 ${isSidebarCollapsed ? 'justify-center' : 'space-x-3 text-left'}`}>
+        <div className={`rounded-xl bg-gradient-to-br from-[var(--primary)] to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 shrink-0 transition-all duration-300 ${isSidebarCollapsed ? 'w-10 h-10' : 'w-12 h-12'}`}>
+          <ShieldCheck size={isSidebarCollapsed ? 22 : 28} />
+        </div>
+        {!isSidebarCollapsed && (
+          <span className="text-2xl font-black tracking-tighter text-[var(--text-primary)] transition-all duration-300">STARDUST</span>
+        )}
+      </div>
+
+      <nav className={`flex-1 overflow-y-auto custom-scrollbar relative z-10 ${isSidebarCollapsed ? 'no-scrollbar' : 'pr-2 space-y-3'}`}>
+        {!isSidebarCollapsed && <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-[0.2em] mb-4 ml-4 opacity-50">Core Vault</p>}
+        <div className={`flex flex-col ${isSidebarCollapsed ? 'items-center space-y-4' : 'space-y-3'}`}>
+        {[
+          { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+          { id: 'assets', label: 'Assets', icon: <Wallet size={20} /> },
+          { id: 'insurance', label: 'Insurance', icon: <ShieldCheck size={20} /> },
+          { id: 'credentials', label: 'Passwords', icon: <Key size={20} /> },
+          { id: 'legal', label: 'Legal Center', icon: <FileText size={20} /> },
+          { id: 'contacts', label: 'Contacts', icon: <Users size={20} /> },
+          { id: 'recover', label: 'Recover Vault', icon: <ShieldAlert size={20} /> },
+          { id: 'security', label: 'Security Log', icon: <Shield size={20} /> },
+        ].map(item => (
+          <button
+            key={item.id}
+            id={`nav-${item.id}`}
+            onClick={() => {
+              if (item.id === 'recover') {
+                setShowManualClaimModal(true);
+              } else {
+                handleNavClick(item.id);
+              }
+              setShowMobileSidebar(false);
+            }}
+            className={`w-full nav-item group flex items-center rounded-2xl transition-all ${activeTab === item.id ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]'} ${isSidebarCollapsed ? 'justify-center p-3' : 'space-x-3 px-4 py-3'}`}
+            title={isSidebarCollapsed ? item.label : ''}
+          >
+            <span className={`transition-transform group-hover:scale-110 shrink-0 ${activeTab === item.id ? 'text-white' : 'text-inherit opacity-70'}`}>
+              {item.icon}
+            </span>
+            {!isSidebarCollapsed && <span className="font-bold text-sm whitespace-nowrap overflow-hidden transition-all duration-300">{item.label}</span>}
+          </button>
+        ))}
+        </div>
+        {!isSidebarCollapsed && (
+          <div className="pt-8 mb-4">
+            <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-[0.2em] mb-4 ml-4 opacity-50">Preferences</p>
+          </div>
+        )}
+          <button
+            id="settings-button"
+            onClick={() => {
+              if (isGuest) {
+                auth.openAuthModal('signup');
+                return;
+              }
+              handleNavClick('settings');
+              setShowMobileSidebar(false);
+            }}
+            className={`w-full nav-item group flex items-center rounded-2xl transition-all ${activeTab === 'settings' ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]'} ${isSidebarCollapsed ? 'justify-center p-3' : 'space-x-3 px-4 py-3'}`}
+            title={isSidebarCollapsed ? 'Settings' : ''}
+          >
+            <SettingsIcon size={20} className={`shrink-0 ${activeTab === 'settings' ? 'text-white' : 'text-inherit opacity-70'}`} />
+            {!isSidebarCollapsed && <span className="font-bold text-sm whitespace-nowrap overflow-hidden transition-all duration-300">Settings</span>}
+          </button>
+      </nav>
+
+      <div id="profile-menu" className="mt-auto pt-8 border-t border-[var(--border)] flex flex-col space-y-4 relative z-10">
+        {isGuest ? (
+          <div className="space-y-3">
+            <button onClick={() => { auth.openAuthModal('login'); setShowMobileSidebar(false); }} className="w-full btn-secondary py-3 flex items-center justify-center space-x-2 text-sm">
+              <LogIn size={18} /><span>Sign In</span>
+            </button>
+            <button onClick={() => { auth.openAuthModal('signup'); setShowMobileSidebar(false); }} className="w-full btn-primary py-3 flex items-center justify-center space-x-2 text-sm">
+              <UserPlus size={18} /><span>Create Account</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col space-y-6">
+            <div className={`space-y-4 ${isSidebarCollapsed ? 'px-0' : 'px-2'}`}>
+              <div onClick={() => { switchAccount(null); setShowMobileSidebar(false); }} className={`relative overflow-hidden group rounded-2xl border transition-all cursor-pointer ${!activeAccount ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-[var(--surface-glass)] border-[var(--border)] hover:bg-[var(--surface)]'} ${isSidebarCollapsed ? 'p-2' : 'p-4'}`}>
+                <div className={`flex items-center relative z-10 transition-all ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'}`}>
+                  <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-black shadow-inner transition-colors ${!activeAccount ? 'bg-white text-blue-600' : 'bg-[var(--surface-glass)] text-[var(--text-secondary)]'}`}>
+                    {user?.user?.name ? user.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'JD'}
+                  </div>
+                  {!isSidebarCollapsed && (
+                    <div className="flex-1 truncate transition-all duration-300">
+                      <p className={`text-sm font-black truncate ${!activeAccount ? 'text-white' : 'text-[var(--text-primary)]'}`}>My Personal Vault</p>
+                      <p className={`text-[10px] font-black uppercase tracking-widest ${!activeAccount ? 'text-blue-100/60' : 'text-[var(--text-secondary)]'}`}>Main Storage</p>
+                    </div>
+                  )}
+                  {!activeAccount && !isSidebarCollapsed && <div className="w-2 h-2 rounded-full bg-blue-100 animate-pulse" />}
+                </div>
+              </div>
+
+              {inheritedAccounts.length > 0 && (
+                <div className={`space-y-2 ${isSidebarCollapsed ? 'flex flex-col items-center' : ''}`}>
+                  {!isSidebarCollapsed && (
+                    <div className="flex items-center justify-between px-2 mb-2">
+                      <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] opacity-40">Inherited Vaults</p>
+                      <div className="h-px flex-1 bg-[var(--border)] ml-3 opacity-20" />
+                    </div>
+                  )}
+                  {inheritedAccounts.map(acc => (
+                    <button key={acc.user_id} onClick={() => { switchAccount(acc); setShowMobileSidebar(false); }} className={`group flex items-center transition-all border ${activeAccount?.user_id === acc.user_id ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-[var(--surface-glass)] border-[var(--border)] hover:bg-[var(--surface)]'} ${isSidebarCollapsed ? 'w-10 h-10 justify-center rounded-xl p-0' : 'w-full space-x-3 p-3 rounded-xl'}`}>
+                      <div className={`rounded-lg flex items-center justify-center font-black transition-colors ${activeAccount?.user_id === acc.user_id ? 'bg-emerald-500 text-white' : 'bg-indigo-500/10 text-indigo-400'} ${isSidebarCollapsed ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-xs'}`}>{acc.full_name[0]}</div>
+                      {!isSidebarCollapsed && (
+                        <div className="flex-1 text-left truncate">
+                          <p className={`text-xs font-black truncate ${activeAccount?.user_id === acc.user_id ? 'text-emerald-400' : 'text-[var(--text-primary)]'}`}>{acc.full_name}</p>
+                          <p className={`text-[9px] font-black uppercase tracking-widest ${activeAccount?.user_id === acc.user_id ? 'text-emerald-500/60' : 'text-[var(--text-secondary)]'}`}>Legacy Account</p>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className={`pt-6 border-t border-[var(--border)] flex items-center justify-between ${isSidebarCollapsed ? 'flex-col space-y-4 px-0' : 'px-2'}`}>
+              <div className={`flex items-center transition-all ${isSidebarCollapsed ? 'flex-col space-y-2' : 'space-x-2'}`}>
+                <div className="w-8 h-8 rounded-full bg-[var(--surface-glass)] flex items-center justify-center shrink-0 shadow-inner border border-[var(--border)]"><History size={14} className="text-[var(--text-secondary)]" /></div>
+                {!isSidebarCollapsed && (
+                  <div>
+                    <p className="text-[10px] font-black text-[var(--text-primary)] leading-none">{user?.user?.name?.split(' ')[0]}</p>
+                    <p className="text-[8px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mt-1 text-left">Logged In</p>
+                  </div>
+                )}
+              </div>
+              <div className={`flex items-center gap-1 ${isSidebarCollapsed ? 'flex-col' : ''}`}>
+                <button onClick={() => { setShowAddAccountModal(true); setShowMobileSidebar(false); }} className={`p-2 text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-all ${isSidebarCollapsed ? 'w-full flex justify-center' : ''}`} title="Add Vault"><UserPlus size={16} /></button>
+                <button onClick={() => { setShowLogoutConfirm(true); setShowMobileSidebar(false); }} className={`p-2 text-[var(--text-secondary)] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all ${isSidebarCollapsed ? 'w-full flex justify-center' : ''}`} title="Logout"><LogOut size={16} /></button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
 
   // Trigger shake/glow when trying to navigate away with unsaved form
   const triggerFormAlert = () => {
@@ -297,6 +489,15 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   };
 
   const handleNavClick = (tabId) => {
+    if (tabId === 'vault-access' || tabId === 'settings') {
+      setActiveTab(tabId);
+      return;
+    }
+    if (tabId === 'quick-add') {
+      setActiveTab('assets');
+      guardedStartAdding(null);
+      return;
+    }
     if (isAdding) {
       triggerFormAlert();
       return;
@@ -305,7 +506,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   };
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
-  const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' });
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const API = 'http://localhost:5001/api';
   const authHeaders = useMemo(() => {
     const headers = { Authorization: `Bearer ${user?.token || ''}` };
@@ -374,10 +575,17 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
           dob: res.data.dob ? res.data.dob.split('T')[0] : '',
         };
       });
+      setVaultPolicyForm(prev => {
+        if (vaultPolicyEditing) return prev;
+        return {
+          inactivity_trigger_period: res.data.inactivity_trigger_period || 9,
+          reminder_interval: res.data.reminder_interval || 3
+        };
+      });
     } catch (err) {
       console.error('Error fetching user profile');
     }
-  }, [authHeaders, settingsEditing]);
+  }, [authHeaders, settingsEditing, vaultPolicyEditing]);
 
   // Fetch nominee
   const fetchNominee = useCallback(async () => {
@@ -412,7 +620,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
     } finally {
       setLoading(false);
     }
-  }, [authHeaders]);
+  }, [authHeaders, showToast]);
 
   const handleDeleteAsset = async (id) => {
     setConfirmModal({ isOpen: true, id });
@@ -441,11 +649,6 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
     setIsAdding(true);
     setAddingCategory(card.category);
     setSelectedCard(null);
-  };
-
-  const showToast = (message, type = 'success') => {
-    setToast({ isVisible: true, message, type });
-    setTimeout(() => setToast(prev => ({ ...prev, isVisible: false })), 4000);
   };
 
   useEffect(() => {
@@ -541,6 +744,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       await axios.post(`${API}/auth/nominee`, nomineeForm, { headers: authHeaders });
       setNomineeEditing(false);
       fetchNominee();
+      showToast('Legacy contact updated successfully', 'success');
     } catch (err) {
       console.error('Failed to save nominee');
     } finally {
@@ -564,6 +768,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
     setShowNomineeModal(false);
     fetchNominee();
     fetchProfileCompletion();
+    showToast('Nominee successfully registered to vault', 'success');
     // Mark as dismissed so it doesn't auto-popup again immediately if they just closed it
     localStorage.setItem('stardust_nominee_prompt_dismissed', 'true');
   };
@@ -576,10 +781,26 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       setSettingsEditing(false);
       fetchUserProfile();
       fetchProfileCompletion();
+      showToast('Personal profile synchronized successfully', 'success');
     } catch (err) {
       console.error('Failed to save settings');
     } finally {
       setSettingsSaving(false);
+    }
+  };
+
+  const handleVaultPolicySave = async () => {
+    setVaultPolicySaving(true);
+    try {
+      await axios.put(`${API}/auth/vault-policy`, vaultPolicyForm, { headers: authHeaders });
+      showToast('Vault security protocol updated', 'success');
+      setVaultPolicyEditing(false);
+      fetchUserProfile();
+    } catch (err) {
+      console.error('Failed to save vault policy');
+      showToast('Failed to update protocol', 'error');
+    } finally {
+      setVaultPolicySaving(false);
     }
   };
 
@@ -631,12 +852,12 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       case 'dashboard':
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6" id="dashboard-section">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-0">
               <div>
-                <h1 className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">Vault Command Center</h1>
-                <p className="text-sm text-[var(--text-secondary)] font-medium">Monitor your global asset health and security status.</p>
+                <h1 className="text-2xl md:text-3xl font-black text-[var(--text-primary)] tracking-tighter">Vault Command Center</h1>
+                <p className="text-xs md:text-sm text-[var(--text-secondary)] font-medium">Monitor your global asset health and security status.</p>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 <button
                   onClick={() => {
                     if (isGuest) {
@@ -645,18 +866,18 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                     }
                     setShowNomineeModal(true);
                   }}
-                  className="px-5 py-2.5 rounded-xl font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all flex items-center space-x-2 text-sm"
+                  className="px-4 py-2.5 rounded-xl font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all flex items-center space-x-2 text-xs md:text-sm flex-1 md:flex-none justify-center"
                 >
-                  <UserPlus size={16} />
+                  <UserPlus size={16} className="shrink-0" />
                   <span>Add Nominee</span>
                 </button>
-                <button className="px-5 py-2.5 rounded-xl font-bold bg-[var(--surface-glass)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all flex items-center space-x-2 text-sm">
-                  <FileText size={16} />
+                <button className="px-4 py-2.5 rounded-xl font-bold bg-[var(--surface-glass)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all flex items-center space-x-2 text-xs md:text-sm flex-1 md:flex-none justify-center">
+                  <FileText size={16} className="shrink-0" />
                   <span>Export Report</span>
                 </button>
-                <button id="add-resource-btn" onClick={() => guardedStartAdding(null)} className="btn-primary flex items-center space-x-2 px-5 py-2.5 text-sm">
-                  <Plus size={18} />
-                  <span>Add New Resource</span>
+                <button id="add-resource-btn" onClick={() => guardedStartAdding(null)} className="btn-primary flex items-center space-x-2 px-6 py-3 md:py-2.5 text-sm w-full md:w-auto justify-center shadow-xl shadow-blue-500/20">
+                  <Plus size={18} className="shrink-0" />
+                  <span className="font-black">Add New Resource</span>
                 </button>
               </div>
             </div>
@@ -709,18 +930,18 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
                   {stats.map((stat, i) => (
-                    <div key={i} className="card glass p-4 border border-[var(--border)] text-left flex flex-col justify-between min-h-[100px]">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className={`p-2 rounded-xl ${stat.color}`}>
+                    <div key={i} className={`card glass p-4 md:p-5 border border-[var(--border)] text-left flex flex-col justify-between min-h-[110px] md:min-h-[130px] transition-all hover:scale-[1.02] ${i === stats.length - 1 && stats.length % 2 !== 0 ? 'col-span-2 lg:col-span-1' : ''}`}>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className={`p-2.5 rounded-xl ${stat.color} shadow-lg shadow-current/10`}>
                           {React.cloneElement(stat.icon, { size: 18 })}
                         </div>
-                        <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{stat.trend}</span>
+                        <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider opacity-60">{stat.trend}</span>
                       </div>
                       <div>
-                        <h3 className="text-3xl font-black text-[var(--text-primary)] tracking-tighter mb-1">{stat.value}</h3>
-                        <p className="text-xs font-bold text-[var(--text-secondary)]">{stat.label}</p>
+                        <h3 className="text-2xl md:text-3xl font-black text-[var(--text-primary)] tracking-tighter mb-1 select-none">{stat.value}</h3>
+                        <p className="text-[10px] md:text-xs font-black text-[var(--text-secondary)] uppercase tracking-widest opacity-70 leading-none">{stat.label}</p>
                       </div>
                     </div>
                   ))}
@@ -818,26 +1039,26 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       case 'assets':
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
-                <h1 className="text-4xl font-black text-[var(--text-primary)] tracking-tighter">Asset Management</h1>
-                <p className="text-[var(--text-secondary)] mt-1 font-medium">Full inventory of your global physical and digital wealth.</p>
+                <h1 className="text-3xl md:text-4xl font-black text-[var(--text-primary)] tracking-tighter">Asset Management</h1>
+                <p className="text-[var(--text-secondary)] mt-1 font-medium text-sm md:text-base">Full inventory of your global physical and digital wealth.</p>
               </div>
               <div className="flex space-x-3">
                 {!activeAccount && (
-                  <button onClick={() => guardedStartAdding('Credit Card')} className="btn-secondary px-6 py-3 flex items-center space-x-2">
+                  <button onClick={() => guardedStartAdding('Credit Card')} className="btn-secondary px-4 md:px-6 py-2.5 md:py-3 flex items-center space-x-2 text-xs md:text-sm whitespace-nowrap">
                     <CreditCard size={18} />
                     <span>Add Card</span>
                   </button>
                 )}
                 {!activeAccount && (
                   <>
-                    <button onClick={() => guardedStartAdding(null)} className="btn-primary px-6 py-3 flex items-center space-x-2">
+                    <button onClick={() => guardedStartAdding(null)} className="btn-primary px-4 md:px-6 py-2.5 md:py-3 flex items-center space-x-2 text-xs md:text-sm whitespace-nowrap">
                       <Plus size={20} />
                       <span>Register Asset</span>
                     </button>
                     {assetFilter === 'Investment' && (
-                      <button onClick={() => setShowMFSync(true)} className="px-6 py-3 bg-[var(--primary)] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-transform flex items-center space-x-2">
+                      <button onClick={() => setShowMFSync(true)} className="px-4 md:px-6 py-2.5 md:py-3 bg-[var(--primary)] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-transform flex items-center space-x-2 text-xs md:text-sm whitespace-nowrap">
                         <RefreshCw size={18} />
                         <span>Sync Portfolio</span>
                       </button>
@@ -846,9 +1067,8 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                 )}
               </div>
             </div>
-
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div className="flex space-x-2 border-b border-[var(--border)] pb-px overflow-x-auto custom-scrollbar flex-1">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+              <div className="flex items-center space-x-2 border-b border-[var(--border)] pb-px overflow-x-auto custom-scrollbar flex-1 no-scrollbar">
                 {[
                   { id: 'All Assets', label: 'All Assets' },
                   { id: 'Property', label: 'Real Estate' },
@@ -880,7 +1100,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                   className="w-full pl-10 pr-4 py-2.5 bg-[var(--surface-glass)] border border-[var(--border)] rounded-xl text-sm font-medium text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--primary)] transition-all transition-colors"
                 />
               </div>
-            </div>
+            </div >
 
             <div id="asset-list-container" className="card glass overflow-hidden border border-[var(--border)]">
               <table className="w-full text-left border-collapse">
@@ -1027,12 +1247,12 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       case 'insurance':
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
-                <h1 className="text-4xl font-black text-[var(--text-primary)] tracking-tighter">Insurance Policies</h1>
-                <p className="text-[var(--text-secondary)] mt-1 font-medium">Consolidated view of all risk management and coverage.</p>
+                <h1 className="text-3xl md:text-4xl font-black text-[var(--text-primary)] tracking-tighter">Insurance Policies</h1>
+                <p className="text-[var(--text-secondary)] mt-1 font-medium text-sm md:text-base">Consolidated view of all risk management and coverage.</p>
               </div>
-              <button onClick={() => guardedStartAdding('Insurance')} className="btn-primary px-6 py-3 flex items-center space-x-2">
+              <button onClick={() => guardedStartAdding('Insurance')} className="btn-primary px-6 py-3 flex items-center space-x-2 w-full md:w-auto justify-center">
                 <Plus size={20} />
                 <span>Add Coverage</span>
               </button>
@@ -1123,12 +1343,12 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       case 'credentials':
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
-                <h1 className="text-4xl font-black text-[var(--text-primary)] tracking-tighter">Login Credentials</h1>
-                <p className="text-[var(--text-secondary)] mt-1 font-medium">Secure password vault with zero-knowledge architecture.</p>
+                <h1 className="text-3xl md:text-4xl font-black text-[var(--text-primary)] tracking-tighter">Login Credentials</h1>
+                <p className="text-[var(--text-secondary)] mt-1 font-medium text-sm md:text-base">Secure password vault with zero-knowledge architecture.</p>
               </div>
-              <button onClick={() => guardedStartAdding('Password')} className="btn-primary flex items-center space-x-2 px-6 py-3">
+              <button onClick={() => guardedStartAdding('Password')} className="btn-primary flex items-center space-x-2 px-6 py-3 w-full md:w-auto justify-center">
                 <Plus size={20} />
                 <span>Add Credential</span>
               </button>
@@ -1556,17 +1776,85 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
 
               <div className="card glass p-8 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-                <h3 className="text-2xl font-black text-[var(--text-primary)] mb-6 tracking-tight relative z-10">Vault Distribution</h3>
+                <div className="flex items-center justify-between mb-6 relative z-10">
+                  <h3 className="text-2xl font-black text-[var(--text-primary)] tracking-tight">Vault Distribution</h3>
+                  {!vaultPolicyEditing ? (
+                    <button onClick={() => setVaultPolicyEditing(true)} className="text-[var(--primary)] font-black text-xs uppercase tracking-[0.2em] hover:text-[var(--text-primary)] transition-colors">Adjust Protocol</button>
+                  ) : (
+                    <div className="flex gap-4">
+                      <button onClick={() => setVaultPolicyEditing(false)} className="text-[var(--text-secondary)] font-bold text-sm hover:text-[var(--text-primary)] transition-colors">Cancel</button>
+                      <button onClick={handleVaultPolicySave} disabled={vaultPolicySaving} className="btn-primary text-xs px-6 py-2 uppercase tracking-widest font-black">
+                        {vaultPolicySaving ? 'Syncing...' : 'Save Settings'}
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <p className="text-sm text-[var(--text-secondary)] mb-8 leading-relaxed font-medium relative z-10">Define how access is granted to your heirs in the event of an emergency or long-term inactivity.</p>
-                <div className="p-8 bg-[var(--surface-glass)] rounded-[2rem] border border-[var(--border)] relative z-10 shadow-inner">
-                  <div className="flex justify-between items-center mb-6">
-                    <p className="font-black text-[var(--text-primary)] tracking-widest uppercase text-xs opacity-60">Inactivity Trigger</p>
-                    <span className="text-amber-500 font-black tabular-nums tracking-widest uppercase text-xs">180 Days</span>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 mb-8">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em]">Inactivity Trigger</label>
+                      <span className="text-amber-500 font-extrabold tabular-nums tracking-widest uppercase text-xs">
+                        {vaultPolicyForm.inactivity_trigger_period} Months
+                      </span>
+                    </div>
+                    {vaultPolicyEditing ? (
+                      <select
+                        className="input-field"
+                        value={vaultPolicyForm.inactivity_trigger_period}
+                        onChange={e => setVaultPolicyForm({ ...vaultPolicyForm, inactivity_trigger_period: parseInt(e.target.value) })}
+                      >
+                        <option value={6}>6 Months (High Security)</option>
+                        <option value={9}>9 Months (Standard)</option>
+                        <option value={12}>12 Months (Extended)</option>
+                        <option value={24}>24 Months (Legacy)</option>
+                      </select>
+                    ) : (
+                      <div className="w-full h-1.5 bg-[var(--surface-glass)] rounded-full overflow-hidden shadow-inner">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(vaultPolicyForm.inactivity_trigger_period / 24) * 100}%` }}
+                          className="h-full bg-gradient-to-r from-amber-600 to-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.5)]"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className="w-full h-1.5 bg-[var(--surface-glass)] rounded-full overflow-hidden shadow-inner">
-                    <div className="w-3/4 h-full bg-gradient-to-r from-amber-600 to-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em]">Reminder Interval</label>
+                      <span className="text-blue-500 font-extrabold tabular-nums tracking-widest uppercase text-xs">
+                        Every {vaultPolicyForm.reminder_interval} Months
+                      </span>
+                    </div>
+                    {vaultPolicyEditing ? (
+                      <select
+                        className="input-field"
+                        value={vaultPolicyForm.reminder_interval}
+                        onChange={e => setVaultPolicyForm({ ...vaultPolicyForm, reminder_interval: parseInt(e.target.value) })}
+                      >
+                        <option value={1}>1 Month (High Frequency)</option>
+                        <option value={3}>3 Months (Standard)</option>
+                        <option value={6}>6 Months (Low Frequency)</option>
+                      </select>
+                    ) : (
+                      <div className="w-full h-1.5 bg-[var(--surface-glass)] rounded-full overflow-hidden shadow-inner">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(vaultPolicyForm.reminder_interval / 6) * 100}%` }}
+                          className="h-full bg-gradient-to-r from-blue-600 to-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <p className="text-[9px] text-[var(--text-secondary)] font-black mt-6 uppercase tracking-[0.3em] text-center opacity-30">Protocol status: Primed for deployment</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-center gap-3 relative z-10">
+                  <Shield size={16} className="text-amber-500 shrink-0" />
+                  <p className="text-[10px] text-amber-500/80 font-bold leading-relaxed uppercase tracking-wider">
+                    If you don't login for {vaultPolicyForm.inactivity_trigger_period} months, your nominees will be notified. We will send you reminders every {vaultPolicyForm.reminder_interval} months.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1594,14 +1882,48 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   };
 
   return (
-    <div className={`min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] relative flex ${!isGuest && 'selection:bg-[var(--primary)] selection:text-white'}`}>
-      {isOnboarded && (
-        <OnboardingTour
-          user={user}
-          onComplete={handleTourComplete}
-          onStepChange={handleTourStepChange}
-        />
-      )}
+    <div className="h-screen overflow-hidden bg-[var(--bg-app)] flex flex-col md:flex-row relative">
+      <OnboardingTour
+        user={user}
+        onComplete={handleTourComplete}
+        onStepChange={handleTourStepChange}
+      />
+
+      {/* Mobile Bottom Quick Access Bar */}
+      <MobileNav activeTab={activeTab} onTabChange={handleNavClick} />
+
+      {/* Mobile Sidebar Drawer */}
+      <AnimatePresence>
+        {showMobileSidebar && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMobileSidebar(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] md:hidden"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-[80%] max-w-[320px] bg-[var(--surface)] border-r border-[var(--border)] z-[101] md:hidden p-8 flex flex-col"
+            >
+              {renderSidebarContent()}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Search Overlay for Mobile */}
+      <SearchOverlay
+        isOpen={showSearchOverlay}
+        onClose={() => setShowSearchOverlay(false)}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
+
       <AnimatePresence>
         {showFirstAssetWizard && (
           <FirstAssetWizard
@@ -1623,460 +1945,171 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       </AnimatePresence>
 
       {/* Sidebar - Desktop */}
-      <aside className="w-72 bg-[var(--surface)] border-r border-[var(--border)] flex flex-col p-8 transition-all hidden lg:flex relative z-50">
+      <aside className={`${isSidebarCollapsed ? 'w-20 px-3' : 'w-72 p-8'} bg-[var(--surface)] border-r border-[var(--border)] flex flex-col transition-all duration-300 hidden md:flex lg:flex relative z-50 sticky top-0 h-screen`}>
         <div className="absolute inset-0 bg-[var(--primary)]/[0.02] pointer-events-none" />
-
-        <div className="flex items-center space-x-3 mb-12 px-2 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--primary)] to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-            <ShieldCheck size={28} />
-          </div>
-          <span className="text-2xl font-black tracking-tighter text-[var(--text-primary)]">STARDUST</span>
-        </div>
-
-        <nav className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar relative z-10">
-          <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-[0.2em] mb-4 ml-4 opacity-50">Core Vault</p>
-          {[
-            { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-            { id: 'assets', label: 'Assets', icon: <Wallet size={20} /> },
-            { id: 'insurance', label: 'Insurance', icon: <ShieldCheck size={20} /> },
-            { id: 'credentials', label: 'Passwords', icon: <Key size={20} /> },
-            { id: 'legal', label: 'Legal Center', icon: <FileText size={20} /> },
-            { id: 'contacts', label: 'Contacts', icon: <Users size={20} /> },
-            { id: 'recover', label: 'Recover Vault', icon: <ShieldAlert size={20} /> },
-            { id: 'security', label: 'Security Log', icon: <Shield size={20} /> },
-          ].map(item => (
-            <button
-              key={item.id}
-              id={`nav-${item.id}`}
-              onClick={() => {
-                if (item.id === 'recover') {
-                  setShowManualClaimModal(true);
-                } else {
-                  handleNavClick(item.id);
-                }
-              }}
-              className={`w-full nav-item group flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${activeTab === item.id ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]'}`}
-            >
-              <span className={`transition-transform group-hover:scale-110 ${activeTab === item.id ? 'text-white' : 'text-inherit opacity-70'}`}>
-                {item.icon}
-              </span>
-              <span className="font-bold text-sm">{item.label}</span>
-            </button>
-          ))}
-
-          <div className="pt-8 mb-4">
-            <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-[0.2em] mb-4 ml-4 opacity-50">Preferences</p>
-            <button
-              id="settings-button"
-              onClick={() => {
-                if (isGuest) {
-                  auth.openAuthModal('signup');
-                  return;
-                }
-                handleNavClick('settings');
-              }}
-              className={`w-full nav-item group flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${activeTab === 'settings' ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]'}`}
-            >
-              <SettingsIcon size={20} className={`${activeTab === 'settings' ? 'text-white' : 'text-inherit opacity-70'}`} />
-              <span className="font-bold text-sm">Settings</span>
-            </button>
-          </div>
-        </nav>
-
-        <div id="profile-menu" className="mt-auto pt-8 border-t border-[var(--border)] flex flex-col space-y-4 relative z-10">
-          {isGuest ? (
-            <div className="space-y-3">
-              <button
-                onClick={() => auth.openAuthModal('login')}
-                className="w-full btn-secondary py-3 flex items-center justify-center space-x-2 text-sm"
-              >
-                <LogIn size={18} />
-                <span>Sign In</span>
-              </button>
-              <button
-                onClick={() => auth.openAuthModal('signup')}
-                className="w-full btn-primary py-3 flex items-center justify-center space-x-2 text-sm"
-              >
-                <UserPlus size={18} />
-                <span>Create Account</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col space-y-6">
-              {/* Context Switcher Area */}
-              <div className="space-y-4">
-                {/* My Personal Vault (Default Context) */}
-                <div
-                  onClick={() => switchAccount(null)}
-                  className={`relative overflow-hidden group p-4 rounded-2xl border transition-all cursor-pointer ${!activeAccount ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-[var(--surface-glass)] border-[var(--border)] hover:bg-[var(--surface)]'}`}
-                >
-                  <div className="flex items-center space-x-3 relative z-10">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black shadow-inner transition-colors ${!activeAccount ? 'bg-white text-blue-600' : 'bg-[var(--surface-glass)] text-[var(--text-secondary)]'}`}>
-                      {user?.user?.name ? user.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'JD'}
-                    </div>
-                    <div className="flex-1 truncate">
-                      <p className={`text-sm font-black truncate ${!activeAccount ? 'text-white' : 'text-[var(--text-primary)]'}`}>My Personal Vault</p>
-                      <p className={`text-[10px] font-black uppercase tracking-widest ${!activeAccount ? 'text-blue-100/60' : 'text-[var(--text-secondary)]'}`}>Main Storage</p>
-                    </div>
-                    {!activeAccount && <div className="w-2 h-2 rounded-full bg-blue-100 animate-pulse" />}
-                  </div>
-                </div>
-
-                {/* Inherited Vaults List */}
-                {inheritedAccounts.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between px-2 mb-2">
-                      <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] opacity-40">Inherited Vaults</p>
-                      <div className="h-px flex-1 bg-[var(--border)] ml-3 opacity-20" />
-                    </div>
-                    {inheritedAccounts.map(acc => (
-                      <button
-                        key={acc.user_id}
-                        onClick={() => switchAccount(acc)}
-                        className={`w-full group flex items-center space-x-3 p-3 rounded-xl transition-all border ${activeAccount?.user_id === acc.user_id ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-[var(--surface-glass)] border-[var(--border)] hover:bg-[var(--surface)]'}`}
-                      >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs transition-colors ${activeAccount?.user_id === acc.user_id ? 'bg-emerald-500 text-white' : 'bg-indigo-500/10 text-indigo-400'}`}>
-                          {acc.full_name[0]}
-                        </div>
-                        <div className="flex-1 text-left truncate">
-                          <p className={`text-xs font-black truncate ${activeAccount?.user_id === acc.user_id ? 'text-emerald-400' : 'text-[var(--text-primary)]'}`}>{acc.full_name}</p>
-                          <p className={`text-[9px] font-black uppercase tracking-widest ${activeAccount?.user_id === acc.user_id ? 'text-emerald-500/60' : 'text-[var(--text-secondary)]'}`}>Legacy Account</p>
-                        </div>
-                        {activeAccount?.user_id === acc.user_id && <LogIn size={14} className="text-emerald-500" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Account Controls */}
-              <div className="pt-6 border-t border-[var(--border)] flex items-center justify-between px-2">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-full bg-[var(--surface-glass)] flex items-center justify-center">
-                    <History size={14} className="text-[var(--text-secondary)]" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-[var(--text-primary)] leading-none">{user?.user?.name?.split(' ')[0]}</p>
-                    <p className="text-[8px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mt-1">Logged In</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setShowAddAccountModal(true)} className="p-2 text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 rounded-lg transition-all" title="Link Vault">
-                    <UserPlus size={16} />
-                  </button>
-                  <button onClick={onLogout} className="p-2 text-[var(--text-secondary)] hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="Secure Logout">
-                    <LogOut size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {renderSidebarContent()}
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Verification Banner */}
-        {userProfile && !userProfile.is_verified && !activeAccount && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 px-10 py-3 flex items-center justify-between z-40 relative">
-            <div className="flex items-center space-x-3">
-              <AlertTriangle size={18} className="text-amber-500" />
-              <span className="text-sm font-bold text-amber-500">Security Pulse Required: Verify your device to unlock Vault Asset Creation.</span>
-            </div>
-            <button
-              onClick={() => {
-                showToast('Please sign out and sign back in to receive your security pulse.', 'success');
-                setTimeout(() => onLogout(), 3000);
-              }}
-              className="px-4 py-1.5 bg-amber-500 text-amber-950 font-black text-xs uppercase tracking-widest rounded-lg hover:bg-amber-400 transition-colors"
-            >
-              Verify Now
-            </button>
-          </div>
-        )}
-
-        {/* Legacy Mode Banner */}
-        {activeAccount && (
-          <div className="bg-emerald-600 px-10 py-2 flex items-center justify-between z-40 relative shadow-lg">
-            <div className="flex items-center space-x-3">
-              <ShieldCheck size={18} className="text-white" />
-              <span className="text-xs font-black text-white uppercase tracking-[0.2em]">Viewing Legacy Vault: {activeAccount.full_name}</span>
-            </div>
+      <main className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
+        {/* Fixed Header */}
+        <header className="glass border-b border-[var(--border)] z-40 sticky top-0 transition-colors">
+          <div className="flex items-center justify-between px-4 md:px-8 py-3 md:py-4">
+            {/* Left: Desktop/Mobile Burger & Logo */}
             <div className="flex items-center space-x-4">
-              <span className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest opacity-80 decoration-dotted underline underline-offset-4">View-Only Protocol Active</span>
               <button
-                onClick={() => switchAccount(null)}
-                className="px-4 py-1.5 bg-white text-emerald-600 font-black text-[10px] uppercase tracking-widest rounded-lg hover:bg-emerald-50 transition-colors shadow-sm"
+                onClick={() => isSidebarCollapsed ? setIsSidebarCollapsed(false) : setIsSidebarCollapsed(true)}
+                className="hidden md:flex p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-glass)] rounded-xl transition-all"
               >
-                Return to My Vault
+                <Menu size={24} />
               </button>
+              <button
+                onClick={() => setShowMobileSidebar(true)}
+                className="md:hidden p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-glass)] rounded-xl transition-all"
+              >
+                <Menu size={24} />
+              </button>
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br from-[var(--primary)] to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                  <ShieldCheck size={18} className="md:hidden" />
+                  <ShieldCheck size={24} className="hidden md:block" />
+                </div>
+                <span className="text-lg md:text-xl font-black tracking-tighter text-[var(--text-primary)]">STARDUST</span>
+              </div>
             </div>
-          </div>
-        )}
+            {/* Center/Right: Desktop Search & Profiles */}
+            <div className="flex-1 flex items-center justify-end md:justify-between">
+              {/* Desktop Search */}
+              <div className="hidden md:flex flex-1 max-w-xl mx-8 relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search assets, documents or policies..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    if (isGuest) {
+                      auth.openAuthModal('signup');
+                      return;
+                    }
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.trim().length > 0 && activeTab !== 'assets') {
+                      setActiveTab('assets');
+                      setAssetFilter('All Assets');
+                    }
+                  }}
+                  className="w-full pl-12 pr-4 py-3 bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-sm font-semibold text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-4 focus:ring-blue-500/10 transition-all"
+                />
+              </div>
 
-        {/* Nominee Setup Banner (Shown only if Profile is 100% but Nominee is missing) */}
-        {!isGuest && !activeAccount && profileCompletion.is_complete && !nominee && (
-          <div className="bg-indigo-500/10 border-b border-indigo-500/20 px-10 py-3 flex items-center justify-between z-40 relative">
-            <div className="flex items-center space-x-3">
-              <Users size={18} className="text-indigo-400" />
-              <span className="text-sm font-bold text-indigo-400">Vault Milestone: Designate your Legacy Contact (Nominee) to secure your inheritance.</span>
-            </div>
-            <button
-              onClick={() => setShowNomineeModal(true)}
-              className="px-4 py-1.5 bg-indigo-500 text-white font-black text-xs uppercase tracking-widest rounded-lg hover:bg-indigo-400 transition-colors"
-            >
-              Start Setup
-            </button>
-          </div>
-        )}
+              {/* Desktop User Actions */}
+              <div className="flex items-center space-x-2 md:space-x-4">
+                <button
+                  onClick={() => setShowSearchOverlay(true)}
+                  className="md:hidden p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  <Search size={22} />
+                </button>
 
-        {/* Search & Header */}
-        <header className="glass border-b border-[var(--border)] z-30 sticky top-0 transition-colors">
-          {/* Profile Completion Bar */}
-          {!activeAccount && !profileCompletion.is_complete && (
-            <div className="px-10 py-2 bg-[var(--primary)]/10 border-b border-[var(--border)]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <span className="text-xs font-bold text-[var(--primary)]">Vault Readiness</span>
-                  <div className="w-48 h-1.5 bg-[var(--surface-glass)] rounded-full overflow-hidden">
+                <div className="hidden lg:flex items-center space-x-3 px-4 py-2 bg-[var(--primary)]/10 rounded-2xl border border-[var(--primary)]/20 mr-2">
+                  <div className="w-24 h-1 bg-[var(--surface-glass)] rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${profileCompletion.percentage}%` }}
                       className="h-full bg-gradient-to-r from-[var(--primary)] to-indigo-500 rounded-full"
                     />
                   </div>
-                  <span className="text-xs font-black text-[var(--text-primary)]">{profileCompletion.percentage}%</span>
+                  <span className="text-[10px] font-black text-[var(--text-primary)]">{profileCompletion.percentage}%</span>
                 </div>
-                <button
-                  onClick={() => setShowAccountModal(true)}
-                  className="text-xs font-bold text-[var(--primary)] hover:text-[var(--text-primary)] transition-colors flex items-center space-x-1"
-                >
-                  <span>Verify Identity</span>
-                  <ArrowRight size={12} />
-                </button>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={toggleTheme}
+                    className="p-2.5 text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] rounded-xl border border-[var(--border)] relative w-10 h-10 flex items-center justify-center overflow-hidden"
+                  >
+                    <motion.div initial={false} animate={{ y: theme === 'dark' ? 0 : 30 }} className="absolute"><Moon size={18} /></motion.div>
+                    <motion.div initial={false} animate={{ y: theme === 'light' ? 0 : -30 }} className="absolute"><Sun size={18} /></motion.div>
+                  </button>
+
+                  <button className="hidden sm:flex p-2.5 text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] rounded-xl border border-[var(--border)] relative w-10 h-10 items-center justify-center">
+                    <Bell size={18} />
+                    <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-[var(--surface)]" />
+                  </button>
+
+                  <button
+                    onClick={() => setShowAccountModal(true)}
+                    className="w-10 h-10 bg-[var(--primary)] text-white rounded-xl flex items-center justify-center font-black text-xs shadow-lg shadow-blue-500/20 hover:scale-105 transition-all"
+                  >
+                    {user?.user?.name ? user.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'JD'}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-          <div className="h-20 flex items-center justify-between px-8">
-            <div className="relative w-full max-w-2xl group">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
-              <input
-                type="text"
-                placeholder="Search assets, documents, or contacts..."
-                value={searchQuery}
-                onChange={(e) => {
-                  if (isGuest) {
-                    auth.openAuthModal('signup');
-                    return;
-                  }
-                  setSearchQuery(e.target.value);
-                  if (e.target.value.trim().length > 0 && activeTab !== 'assets') {
-                    setActiveTab('assets');
-                    setAssetFilter('All Assets');
-                  }
-                }}
-                className="w-full pl-14 pr-6 py-3.5 bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl outline-none focus:bg-[var(--surface)] focus:border-[var(--primary)]/50 focus:ring-4 focus:ring-blue-500/10 transition-all font-semibold text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] opacity-70 focus:opacity-100"
-              />
-            </div>
-
-            <div className="flex items-center space-x-4 ml-8">
-              {isGuest ? (
-                /* Guest: Login / Sign Up buttons in top nav */
-                <>
-                  <button
-                    onClick={() => auth.openAuthModal('login')}
-                    className="px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] hover:text-[var(--primary)] transition-colors"
-                  >
-                    Log In
-                  </button>
-                  <button
-                    onClick={() => auth.openAuthModal('signup')}
-                    className="px-5 py-2.5 bg-[var(--primary)] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:scale-105 transition-all flex items-center space-x-2"
-                  >
-                    <UserPlus size={16} />
-                    <span>Sign Up</span>
-                  </button>
-                </>
-              ) : (
-                /* Authenticated: status + theme + notifications */
-                <>
-                  <div className="hidden md:flex flex-col text-right">
-                    <div className="flex items-center space-x-2 justify-end">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Encrypted Link Active</span>
-                    </div>
-                    <p className="text-[10px] font-black text-[var(--primary)] mt-0.5 tracking-tighter">{assets.length} ASSETS SECURED</p>
-                  </div>
-                </>
-              )}
-
-              <button
-                onClick={toggleTheme}
-                className="p-3 text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)] rounded-2xl transition-all border border-[var(--border)] group flex items-center justify-center overflow-hidden relative"
-              >
-                <motion.div
-                  initial={false}
-                  animate={{ y: theme === 'dark' ? 0 : 40 }}
-                  className="absolute"
-                >
-                  <Moon size={22} />
-                </motion.div>
-                <motion.div
-                  initial={false}
-                  animate={{ y: theme === 'light' ? 0 : -40 }}
-                  className="absolute"
-                >
-                  <Sun size={22} />
-                </motion.div>
-                <div className="invisible">
-                  <Moon size={22} />
-                </div>
-              </button>
-
-              {!isGuest && (
-                <button id="notifications-icon" className="relative p-3 text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)] rounded-2xl transition-all border border-[var(--border)] group">
-                  <Bell size={22} className="group-hover:rotate-12 transition-transform" />
-                  <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[var(--surface)] shadow-lg" />
-                </button>
-              )}
             </div>
           </div>
         </header>
 
-
-
-        {/* Account Details Modal */}
-        {showAccountModal && (
-          <ProfileCompletionModal user={user} onComplete={handleAccountComplete} />
-        )}
-
-        {/* Nominee Setup Modal */}
-        {showNomineeModal && (
-          <NomineeSetupModal user={user} onComplete={handleNomineeComplete} />
-        )}
-
-        {/* Profile Incomplete Prompt */}
-        <AnimatePresence>
-          {showProfilePrompt && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              style={{
-                position: 'fixed', inset: 0, zIndex: 9998,
-                background: 'rgba(15,23,42,0.5)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-              onClick={() => setShowProfilePrompt(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.9, y: 20 }}
-                onClick={e => e.stopPropagation()}
-                style={{
-                  background: 'var(--surface)', borderRadius: '20px', padding: '32px',
-                  maxWidth: '400px', width: '100%', textAlign: 'center',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-                  border: '1px solid var(--border)'
-                }}
-              >
-                <div style={{
-                  width: '64px', height: '64px', borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 16px',
-                }}>
-                  <AlertTriangle size={32} color="white" />
+        {/* Scrollable Workspace Area */}
+        < div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar" >
+          {/* Status Banners */}
+          {
+            userProfile && !userProfile.is_verified && !activeAccount && (
+              <div className="bg-amber-500/10 border-b border-amber-500/20 px-10 py-3 flex items-center justify-between relative z-10">
+                <div className="flex items-center space-x-3">
+                  <AlertTriangle size={18} className="text-amber-500" />
+                  <span className="text-sm font-bold text-amber-500">Security Pulse Required: Verify your device to unlock Vault Asset Creation.</span>
                 </div>
-                <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>
-                  Complete Your Profile
-                </h3>
-                <p style={{ fontSize: '14px', color: '#6b7280', lineHeight: 1.6, marginBottom: '20px', fontWeight: 500 }}>
-                  You need to complete your profile setup ({profileCompletion.percentage}% done) before adding assets to your vault.
-                </p>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                  <button
-                    onClick={() => setShowProfilePrompt(false)}
-                    style={{
-                      padding: '10px 20px', borderRadius: '12px',
-                      border: '1px solid #e5e7eb', background: '#f9fafb',
-                      color: '#374151', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
-                    }}
-                  >
-                    Later
-                  </button>
-                  <button
-                    onClick={() => { setShowProfilePrompt(false); setShowAccountModal(true); }}
-                    style={{
-                      padding: '10px 20px', borderRadius: '12px', border: 'none',
-                      background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                      color: 'white', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
-                      boxShadow: '0 4px 14px rgba(124, 58, 237, 0.3)',
-                    }}
-                  >
-                    Complete Now
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <button
+                  onClick={() => {
+                    showToast('Please sign out and sign back in to receive your security pulse.', 'success');
+                    setTimeout(() => onLogout(), 3000);
+                  }}
+                  className="px-4 py-1.5 bg-amber-500 text-amber-950 font-black text-xs uppercase tracking-widest rounded-lg"
+                >
+                  Verify Now
+                </button>
+              </div>
+            )
+          }
 
-        {/* Scrollable Workspace */}
-        <div className="flex-1 overflow-y-auto px-8 py-6 custom-scrollbar">
-          <AnimatePresence mode="wait">
-            {isAdding ? (
-              <motion.div
-                key="add-view"
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                transition={{ duration: 0.3 }}
-              >
-                {addingCategory ? (
-                  <UniversalVaultForm
-                    category={addingCategory}
-                    initialData={editingAsset}
-                    showToast={showToast}
-                    shake={formShake}
-                    glow={formGlow}
-                    onCancel={() => {
-                      cancelAdding();
-                      setEditingAsset(null);
-                    }}
-                    onSave={(data) => {
-                      console.log('Saved:', data);
-                      const wasFirstAsset = assets.length === 0;
-                      fetchAssets();
-                      cancelAdding();
-                      setEditingAsset(null);
-                      if (wasFirstAsset) {
-                        setTimeout(() => setShowCelebration(true), 500);
-                      }
-                    }}
-                  />
-                ) : (
-                  <CategoryPicker
-                    onSelect={(cat) => setAddingCategory(cat)}
-                    onCancel={cancelAdding}
-                  />
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3 }}
-              >
-                {renderContent()}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </main>
+          {
+            activeAccount && (
+              <div className="bg-emerald-600 px-10 py-2 flex items-center justify-between relative z-10">
+                <div className="flex items-center space-x-3 text-white">
+                  <ShieldCheck size={18} />
+                  <span className="text-xs font-black uppercase tracking-[0.2em]">Viewing Legacy Vault: {activeAccount.full_name}</span>
+                </div>
+                <button onClick={() => switchAccount(null)} className="px-4 py-1.5 bg-white text-emerald-600 font-black text-[10px] uppercase tracking-widest rounded-lg">Return to My Vault</button>
+              </div>
+            )
+          }
+
+          {/* Main Content */}
+          <div className="md:px-8 px-4 py-6 mb-20 md:mb-0">
+            <AnimatePresence mode="wait">
+              {isAdding ? (
+                <motion.div key="add-form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  {addingCategory ? (
+                    <UniversalVaultForm
+                      category={addingCategory}
+                      initialData={editingAsset}
+                      showToast={showToast}
+                      onCancel={() => { cancelAdding(); setEditingAsset(null); }}
+                      onSave={() => { fetchAssets(); cancelAdding(); setEditingAsset(null); }}
+                    />
+                  ) : (
+                    <CategoryPicker onSelect={(cat) => setAddingCategory(cat)} onCancel={cancelAdding} />
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                  {renderContent()}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="h-20 md:hidden" />
+        </div >
+      </main >
 
       <VaultConfirm
         isOpen={confirmModal.isOpen}
@@ -2088,12 +2121,19 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
         type="danger"
       />
 
-      <VaultToast
-        isVisible={toast.isVisible}
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
+      <VaultConfirm
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          onLogout();
+        }}
+        title="Secure Logout"
+        message="Are you sure you want to terminate your current vault session? You will need to re-authenticate to access your secured assets."
+        confirmText="Logout Now"
+        type="danger"
       />
+
 
       <ManualClaimModal
         isOpen={showManualClaimModal}
@@ -2114,7 +2154,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
           setShowAddAccountModal(false);
         }}
       />
-    </div>
+    </div >
   );
 };
 

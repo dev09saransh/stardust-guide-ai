@@ -15,7 +15,7 @@ const Navigation = ({ onLogout }) => {
               </div>
               <span className="ml-2 text-xl font-bold text-gray-800">Stardust</span>
             </div>
-            
+
             {/* Navigation Links - Desktop */}
             <div className="hidden md:ml-10 md:flex md:items-center md:space-x-8">
               <a href="#" className="border-[#4299E1] text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
@@ -35,7 +35,7 @@ const Navigation = ({ onLogout }) => {
               </a>
             </div>
           </div>
-          
+
           {/* User Menu */}
           <div className="flex items-center">
             <div className="ml-3 relative">
@@ -44,16 +44,16 @@ const Navigation = ({ onLogout }) => {
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0A2E5A] to-[#1A5F5F] flex items-center justify-center text-white font-medium">
                     U
                   </div>
-                  <button 
+                  <button
                     onClick={onLogout}
                     className="ml-2 text-gray-700 hover:text-gray-900 text-sm font-medium"
                   >
                     Logout
                   </button>
                 </div>
-                
+
                 {/* Mobile menu button */}
-                <button 
+                <button
                   className="md:hidden text-gray-500 hover:text-gray-700"
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                 >
@@ -65,7 +65,7 @@ const Navigation = ({ onLogout }) => {
             </div>
           </div>
         </div>
-        
+
         {/* Mobile menu */}
         {isMenuOpen && (
           <div className="md:hidden">

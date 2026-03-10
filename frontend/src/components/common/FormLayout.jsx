@@ -10,7 +10,7 @@ export const FormLayoutWrapper = ({ title, description, children, onSave, onCanc
     >
         <div className="flex items-center justify-between">
             <div>
-                <h1 className="text-3xl font-bold text-white tracking-tight">{title}</h1>
+                <h1 className="text-3xl font-black text-white tracking-tight leading-tight">{title}</h1>
                 <p className="text-sm text-[var(--text-secondary)] mt-1 font-medium">{description}</p>
             </div>
             <div className="flex space-x-3">
@@ -47,11 +47,10 @@ export const FormLayoutWrapper = ({ title, description, children, onSave, onCanc
                 </motion.button>
             </div>
         </div>
-
         <div className="space-y-6">
             {children}
         </div>
-    </motion.div>
+    </motion.div >
 );
 
 export const UploadComponent = ({ label, file, onUpload, onRemove, onView, uploading, existingFile }) => {

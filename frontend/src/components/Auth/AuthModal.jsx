@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 const API = 'http://127.0.0.1:5001/api';
 
 const AuthModal = () => {
-    const { showAuthModal, closeAuthModal, authModalTab, setAuthModalTab, login, register } = useAuth();
+    const { showAuthModal, closeAuthModal, authModalTab, setAuthModalTab, login, register, showToast } = useAuth();
 
     // Login State
     const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -81,6 +81,7 @@ const AuthModal = () => {
                 setShowOtp(true);
                 setLoginDetails(res.data);
             } else if (res.data.token) {
+                showToast(`Welcome back, ${res.data.user.full_name || 'Agent'}`, 'success');
                 login(res.data);
             }
         } catch (err) {
@@ -99,7 +100,10 @@ const AuthModal = () => {
                 userId: loginDetails.userId,
                 otp: otpCode
             });
-            if (res.data.token) login(res.data);
+            if (res.data.token) {
+                showToast(`Identity Verified. Access Granted.`, 'success');
+                login(res.data);
+            }
         } catch (err) {
             setLoginError(err.response?.data?.message || 'Invalid OTP.');
         } finally {
@@ -147,6 +151,7 @@ const AuthModal = () => {
             setRegDetails(prev => ({ ...prev, securityCode: data.securityCode }));
             setShowSecurityCodeScreen(true);
         } else {
+            showToast(`Vault encryption protocol initialized. Welcome, ${data.user.full_name || 'Agent'}`, 'success');
             register(data);
         }
     }

@@ -28,7 +28,8 @@ const {
     recoverUpdateAccount,
     getAuditLogs,
     getNomineeOpportunities,
-    linkNomineeAccount
+    linkNomineeAccount,
+    updateVaultPolicy
 } = require('../controllers/authController');
 const { auth } = require('../middleware/auth');
 
@@ -75,6 +76,7 @@ router.post('/nominee/verify-phone-otp', auth, verifyNomineePhoneOTP);
 // Profile
 router.get('/profile', auth, getUserProfile);
 router.put('/profile', auth, updateUserProfile);
+router.put('/vault-policy', auth, updateVaultPolicy);
 router.get('/profile-completion', auth, getProfileCompletion);
 
 // Audit & Account Switching

@@ -500,7 +500,7 @@ const saveNominee = async (req, res) => {
     }
 
     try {
-        const [userRows] = await db.execute('SELECT vp.nominee_limit FROM users u JOIN vault_policies vp ON u.vault_policy_id = vp.policy_id WHERE u.user_id = ?', [userId]);
+        const [userRows] = await db.execute('SELECT nominee_limit FROM users WHERE user_id = ?', [userId]);
         const limit = userRows[0]?.nominee_limit || 2;
 
         const [nominees] = await db.execute('SELECT nominee_id, email, mobile FROM nominees WHERE user_id = ?', [userId]);
@@ -698,12 +698,12 @@ const getUserProfile = async (req, res) => {
         if (vaultContext && vaultContext !== 'null') {
             const [access] = await db.execute(`
                 SELECT u.user_id FROM users u JOIN nominees n ON u.user_id = n.user_id 
-                WHERE u.user_id = ? AND n.linked_user_id = ? AND u.succession_status = 'GREEN'
+                WHERE u.user_id = ? AND n.linked_user_id = ?
             `, [vaultContext, req.user.id]);
             if (access.length > 0) userId = vaultContext;
         }
 
-        const [rows] = await db.execute('SELECT user_id, full_name, email, mobile, role, is_verified, has_completed_onboarding, security_code, last_login_at, created_at FROM users WHERE user_id = ?', [userId]);
+        const [rows] = await db.execute('SELECT user_id, full_name, email, mobile, address, gender, dob, role, is_verified, has_completed_onboarding, security_code, last_login_at, inactivity_trigger_period, reminder_interval, nominee_limit, created_at FROM users WHERE user_id = ?', [userId]);
         if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
 
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -766,7 +766,7 @@ const getProfileCompletion = async (req, res) => {
         if (vaultContext && vaultContext !== 'null') {
             const [access] = await db.execute(`
                 SELECT u.user_id FROM users u JOIN nominees n ON u.user_id = n.user_id 
-                WHERE u.user_id = ? AND n.linked_user_id = ? AND u.succession_status = 'GREEN'
+                WHERE u.user_id = ? AND n.linked_user_id = ?
             `, [vaultContext, req.user.id]);
             if (access.length > 0) userId = vaultContext;
         }
@@ -822,6 +822,26 @@ const recoverSendOTP = async (req, res) => { res.json({ message: 'Not implemente
 const recoverVerify = async (req, res) => { res.json({ message: 'Not implemented' }); };
 const recoverUpdateAccount = async (req, res) => { res.json({ message: 'Not implemented' }); };
 
+const updateVaultPolicy = async (req, res) => {
+    const { inactivity_trigger_period, reminder_interval } = req.body;
+    const userId = req.user.id;
+
+    if (!inactivity_trigger_period || !reminder_interval) {
+        return res.status(400).json({ message: 'Missing policy fields' });
+    }
+
+    try {
+        await db.execute(
+            'UPDATE users SET inactivity_trigger_period = ?, reminder_interval = ?, updated_at = NOW() WHERE user_id = ?',
+            [inactivity_trigger_period, reminder_interval, userId]
+        );
+        res.json({ message: 'Vault policy updated successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error updating vault policy' });
+    }
+};
+
 module.exports = {
     login,
     register,
@@ -850,5 +870,6 @@ module.exports = {
     recoverLookup,
     recoverSendOTP,
     recoverVerify,
-    recoverUpdateAccount
+    recoverUpdateAccount,
+    updateVaultPolicy
 };

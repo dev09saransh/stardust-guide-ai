@@ -45,14 +45,34 @@ const sendWhatsAppOTP = async (to, otp) => {
         console.log(`✅ [TWILIO] OTP sent. SID: ${message.sid}`);
         return message;
     } catch (err) {
-        console.error('❌ [TWILIO ERROR DETAIL]:', {
-            code: err.code,
-            status: err.status,
-            message: err.message,
-            moreInfo: err.moreInfo
-        });
-        throw err;
+        console.error('❌ [TWILIO ERROR]:', err.message);
+        return { error: err.message };
     }
 };
 
-module.exports = { sendWhatsAppOTP };
+const sendWhatsApp = async (to, body) => {
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+        console.warn('⚠️ TWILIO API KEYS NOT CONFIGURED. MOCKING WHATSAPP TO:', to);
+        return { sid: 'mock_sid' };
+    }
+
+    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    let cleanNumber = to.replace(/[^\d+]/g, '');
+    if (!cleanNumber.startsWith('+')) cleanNumber = '+' + cleanNumber;
+    const formattedTo = `whatsapp:${cleanNumber}`;
+
+    try {
+        const message = await client.messages.create({
+            to: formattedTo,
+            from: process.env.TWILIO_WHATSAPP_NUMBER,
+            body: body
+        });
+        console.log(`✅ [TWILIO] Message sent. SID: ${message.sid}`);
+        return message;
+    } catch (err) {
+        console.error('❌ [TWILIO ERROR]:', err.message);
+        return { error: err.message };
+    }
+};
+
+module.exports = { sendWhatsAppOTP, sendWhatsApp };

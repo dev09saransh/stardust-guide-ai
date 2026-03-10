@@ -45,9 +45,30 @@ const sendEmailOTP = async (to, otp) => {
         console.log(`✅ [RESEND EMAIL] OTP sent to ${to}. Message ID: ${data.id}`);
         return data;
     } catch (err) {
-        console.error('❌ [RESEND EMAIL ERROR DETAIL]:', err);
-        throw err;
+        console.error('❌ [RESEND EMAIL ERROR]:', err.message);
+        return { error: err.message };
     }
 };
 
-module.exports = { sendEmailOTP };
+const sendEmail = async (to, subject, html) => {
+    if (!process.env.RESEND_API_KEY) {
+        console.warn(`⚠️ RESEND API KEY NOT CONFIGURED. MOCK EMAIL to ${to}`);
+        return { id: 'mock_id' };
+    }
+
+    try {
+        const data = await resend.emails.send({
+            from: 'Stardust <vault@resend.dev>',
+            to: [to],
+            subject: subject,
+            html: html,
+        });
+        console.log(`✅ [RESEND EMAIL] Sent to ${to}. Message ID: ${data.id}`);
+        return data;
+    } catch (err) {
+        console.error('❌ [RESEND EMAIL ERROR]:', err.message);
+        return { error: err.message };
+    }
+};
+
+module.exports = { sendEmailOTP, sendEmail };

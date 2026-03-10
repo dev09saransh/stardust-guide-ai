@@ -1,4 +1,6 @@
 const db = require('../config/db');
+const { sendEmail } = require('../services/emailService');
+const { sendWhatsApp } = require('../services/twilioService');
 
 // @route   GET api/admin/users
 // @desc    Get all users for management
@@ -142,7 +144,62 @@ const handleSuccessionRequest = async (req, res) => {
         // Update user status
         await connection.execute('UPDATE users SET succession_status = ? WHERE user_id = ?', [userStatus, request.user_id]);
 
+
         await connection.commit();
+
+        // --- Post-Approval Notification to Nominee ---
+        if (action === 'APPROVE') {
+            try {
+                // Fetch owner, nominee, and user details for the final mail
+                const [details] = await db.execute(`
+                    SELECT 
+                        u.full_name as owner_name, 
+                        u.security_code,
+                        n.full_name as nominee_name,
+                        n.email as nominee_email,
+                        n.mobile as nominee_mobile
+                    FROM succession_requests sr
+                    JOIN users u ON sr.user_id = u.user_id
+                    JOIN nominees n ON sr.nominee_id = n.nominee_id
+                    WHERE sr.request_id = ?
+                `, [requestId]);
+
+                if (details.length > 0) {
+                    const d = details[0];
+                    const approvalSubject = `✅ Access Granted: ${d.owner_name}'s Stardust Vault`;
+                    const approvalHtml = `
+                        <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #1a1a1a; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 20px;">
+                            <h2 style="color: #10b981; font-size: 24px; font-weight: 800; margin-bottom: 20px;">Verification Successful</h2>
+                            <p>Hi ${d.nominee_name},</p>
+                            <p>Our administrators have verified your documentation. You have been granted formal <strong>Succession Access</strong> to <strong>${d.owner_name}</strong>'s vault on the Stardust <strong>Asset Management and Succession Platform</strong>.</p>
+                            
+                            <div style="background: #f0fdf4; padding: 25px; border-radius: 12px; margin: 25px 0; border: 1px solid #bbf7d0; text-align: center;">
+                                <p style="margin: 0; font-size: 12px; font-weight: bold; color: #15803d; text-transform: uppercase; tracking-widest: 0.1em;">Master Security Code</p>
+                                <p style="margin: 10px 0; font-size: 32px; font-weight: 900; color: #166534; font-family: monospace; letter-spacing: 4px;">${d.security_code}</p>
+                            </div>
+
+                            <h3 style="font-size: 18px; font-weight: 700;">Final Steps to Access:</h3>
+                            <ol style="line-height: 1.8;">
+                                <li><strong>Join Stardust:</strong> If you don't have an account, create one at <a href="http://localhost:3000/signup">localhost:3000/signup</a>.</li>
+                                <li><strong>Link the Vault:</strong> Go to your Dashboard, click <strong>"Add Account"</strong> (or "Link Legacy Vault").</li>
+                                <li><strong>Input Code:</strong> Enter the Master Security Code provided above when prompted.</li>
+                            </ol>
+
+                            <p style="margin-top: 30px; padding: 15px; background: #fffbeb; border-radius: 10px; font-size: 12px; color: #92400e;">
+                                🛡️ <strong>Note:</strong> You now have view-access to the vault metadata. This process ensures the privacy of the owner while providing you with necessary asset details.
+                            </p>
+                        </div>
+                    `;
+                    await sendEmail(d.nominee_email, approvalSubject, approvalHtml);
+
+                    const approvalWAMsg = `✅ [Stardust] Verification Complete! You now have access to ${d.owner_name}'s vault. Your Master Security Code is: ${d.security_code}. Log in to localhost:3000 to link the account.`;
+                    await sendWhatsApp(d.nominee_mobile, approvalWAMsg);
+                }
+            } catch (notifyErr) {
+                console.error('Failed to send approval notification:', notifyErr);
+            }
+        }
+
         res.json({ message: `Succession request ${action.toLowerCase()}d successfully` });
     } catch (error) {
         await connection.rollback();

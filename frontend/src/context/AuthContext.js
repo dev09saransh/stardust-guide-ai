@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -14,12 +14,17 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [authModalTab, setAuthModalTab] = useState('login');
+    const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' });
+
+    const showToast = useCallback((message, type = 'success') => {
+        setToast({ isVisible: true, message, type });
+        setTimeout(() => setToast(prev => ({ ...prev, isVisible: false })), 4000);
+    }, []);
 
     // Initialize from localStorage
     useEffect(() => {
         const storedToken = localStorage.getItem('stardust_token');
         const storedUser = localStorage.getItem('stardust_user');
-        const onboarded = localStorage.getItem('stardust_onboarded');
 
         if (storedToken && storedUser) {
             try {
@@ -33,9 +38,10 @@ export const AuthProvider = ({ children }) => {
             }
         }
 
-        if (onboarded === 'true') {
-            setIsOnboarded(true);
-        }
+        /* Persistent onboarding disabled by user request - show every visit */
+        // if (onboarded === 'true') {
+        //     setIsOnboarded(true);
+        // }
 
         setLoading(false);
     }, []);
@@ -78,16 +84,19 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        localStorage.removeItem('stardust_token');
-        localStorage.removeItem('stardust_user');
+        localStorage.clear(); // Clear all data (token, user, etc.)
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
         setProfileCompletion({ percentage: 0, is_complete: false });
+
+        // Trigger page refresh to starting state
+        window.location.href = '/';
     };
 
     const completeOnboarding = () => {
-        localStorage.setItem('stardust_onboarded', 'true');
+        // Disabled localStorage persistence per user request to show everytime
+        // localStorage.setItem('stardust_onboarded', 'true');
         setIsOnboarded(true);
     };
 
@@ -100,25 +109,48 @@ export const AuthProvider = ({ children }) => {
         setShowAuthModal(false);
     };
 
+    const contextValue = useMemo(() => ({
+        user,
+        token,
+        isAuthenticated,
+        isOnboarded,
+        profileCompletion,
+        loading,
+        showAuthModal,
+        authModalTab,
+        login,
+        register,
+        logout,
+        completeOnboarding,
+        openAuthModal,
+        closeAuthModal,
+        fetchProfileCompletion,
+        setAuthModalTab,
+        toast,
+        setToast,
+        showToast,
+    }), [
+        user,
+        token,
+        isAuthenticated,
+        isOnboarded,
+        profileCompletion,
+        loading,
+        showAuthModal,
+        authModalTab,
+        login,
+        register,
+        logout,
+        completeOnboarding,
+        openAuthModal,
+        closeAuthModal,
+        fetchProfileCompletion,
+        toast,
+        showToast
+    ]);
+
     return (
-        <AuthContext.Provider value={{
-            user,
-            token,
-            isAuthenticated,
-            isOnboarded,
-            profileCompletion,
-            loading,
-            showAuthModal,
-            authModalTab,
-            login,
-            register,
-            logout,
-            completeOnboarding,
-            openAuthModal,
-            closeAuthModal,
-            fetchProfileCompletion,
-            setAuthModalTab,
-        }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );
