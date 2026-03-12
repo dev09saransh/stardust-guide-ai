@@ -34,3 +34,15 @@ venv/
 
 # Uploads
 backend/uploads/
+
+# Release artifacts
+*.tar.gz
+release_backup/
+backend/dist/
+
+# Temporary scripts & SQL
+backend/check_db.js
+backend/compare_schema.js
+backend/sync_schema.sql
+Dump20260311.sql
+test-delete.js

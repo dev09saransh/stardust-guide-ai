@@ -19,7 +19,7 @@ Upload these files to your EC2 server at:
 ## Quick Upload Commands (if using SCP)
 ```bash
 # From your local machine:
-scp /Volumes/ssd/coc/ec2-setup/*.sh ubuntu@13.48.25.209:/home/ubuntu/
+scp /Volumes/ssd/coc/ec2-setup/*.sh ubuntu@16.170.248.196:/home/ubuntu/
 ```
 
 ## After Upload

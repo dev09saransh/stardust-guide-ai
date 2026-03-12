@@ -26,8 +26,10 @@ mkdir -p release
 print_status "Building Backend..."
 cd backend
 npm install
-print_status "Creating backend executable..."
-npx pkg src/app.js --targets node18-linux-x64 --output ../release/app
+print_status "Bundling Backend with esbuild..."
+npx esbuild src/app.js --bundle --platform=node --target=node18 --outfile=dist/bundle.js --minify
+print_status "Creating backend executable from bundle..."
+npx pkg dist/bundle.js --targets node18-linux-x64 --output ../release/app
 cd ..
 mv release/app release/app.jar
 print_status "Backend executable created: release/app.jar"
@@ -67,7 +69,7 @@ echo "Git Commit: $(git rev-parse HEAD 2>/dev/null || echo 'N/A')" >> release/VE
 
 cat > release/DEPLOYMENT_INFO.txt << EOF
 Stardust Financial Vault - Deployment Package
-IP Address: 13.48.25.209
+IP Address: 16.170.248.196
 Backend: Port 5001
 Frontend: Port 3000
 Python Service: Port 5005
