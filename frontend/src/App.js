@@ -21,9 +21,18 @@ const AppContent = () => {
     setToast
   } = useAuth();
 
-  // Dashboard blur logic
-  // If not onboarded (first visit), blur the dashboard behind the carousel.
-  const shouldBlur = !isOnboarded;
+  // Onboarding logic: check sessionStorage to show only once per session
+  const [sessionOnboarded, setSessionOnboarded] = React.useState(
+    sessionStorage.getItem('stardust_session_onboarded') === 'true'
+  );
+
+  const handleCompleteOnboarding = () => {
+    sessionStorage.setItem('stardust_session_onboarded', 'true');
+    setSessionOnboarded(true);
+    if (!isOnboarded) completeOnboarding();
+  };
+
+  const shouldBlur = !sessionOnboarded;
 
   // Admin route interception
   const dashboardUser = React.useMemo(() => (
@@ -47,10 +56,10 @@ const AppContent = () => {
 
       {/* 2. Informational Onboarding Carousel Overlay (No Auth Fields) */}
       <AnimatePresence>
-        {!isOnboarded && (
+        {!sessionOnboarded && (
           <OnboardingCarousel
             key="onboarding"
-            onComplete={completeOnboarding}
+            onComplete={handleCompleteOnboarding}
           />
         )}
       </AnimatePresence>

@@ -74,7 +74,7 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
 
             if (initialData?.asset_id) {
                 // Update mode
-                await axios.put(`http://13.48.25.209:5001/api/assets/${initialData.asset_id}`, {
+                await axios.put(`http://16.170.248.196:5001/api/assets/${initialData.asset_id}`, {
                     category,
                     title: assetTitle,
                     metadata: finalMetadata,
@@ -85,7 +85,7 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
                 if (showToast) showToast(`${category} updated successfully`, 'success');
             } else {
                 // Create mode
-                await axios.post('http://13.48.25.209:5001/api/assets', {
+                await axios.post('http://16.170.248.196:5001/api/assets', {
                     category,
                     title: assetTitle,
                     metadata: finalMetadata
@@ -438,7 +438,7 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
                                         const token = localStorage.getItem('stardust_token');
                                         const fd = new FormData();
                                         fd.append('file', file);
-                                        const res = await fetch('http://13.48.25.209:5001/api/uploads', {
+                                        const res = await fetch('http://16.170.248.196:5001/api/uploads', {
                                             method: 'POST',
                                             headers: { 'Authorization': `Bearer ${token}` },
                                             body: fd
@@ -461,7 +461,7 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
                                     if (formData.uploadedFile?.filename) {
                                         try {
                                             const token = localStorage.getItem('stardust_token');
-                                            await fetch(`http://13.48.25.209:5001/api/uploads/${formData.uploadedFile.filename}`, {
+                                            await fetch(`http://16.170.248.196:5001/api/uploads/${formData.uploadedFile.filename}`, {
                                                 method: 'DELETE',
                                                 headers: { 'Authorization': `Bearer ${token}` }
                                             });
@@ -472,7 +472,7 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
                                 onView={() => {
                                     if (formData.uploadedFile?.filename) {
                                         const token = localStorage.getItem('stardust_token');
-                                        window.open(`http://13.48.25.209:5001/api/uploads/${formData.uploadedFile.filename}?token=${token}`, '_blank');
+                                        window.open(`http://16.170.248.196:5001/api/uploads/${formData.uploadedFile.filename}?token=${token}`, '_blank');
                                     }
                                 }}
                             />

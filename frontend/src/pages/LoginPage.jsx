@@ -4,7 +4,7 @@ import { Shield, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide
 import axios from 'axios';
 import { VaultToast } from '../components/common/VaultUI';
 
-const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
+const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = false, onBack, initialStep = 'login' }) => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -13,7 +13,7 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
   const [loginDetails, setLoginDetails] = useState(null);
 
   // Recovery States
-  const [recoveryStep, setRecoveryStep] = useState(null); // 'questions', 'reset'
+  const [recoveryStep, setRecoveryStep] = useState(initialStep === 'forgot-password' ? 'lookup' : null); // null, 'lookup', 'otp', 'reset'
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [recoveryQuestions, setRecoveryQuestions] = useState([]);
   const [recoveryAnswers, setRecoveryAnswers] = useState([]);
@@ -22,7 +22,11 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' });
 
-  const API_BASE = process.env.REACT_APP_API_URL || 'http://13.48.25.209:5001/api/auth';
+  const getBaseUrl = () => {
+    const raw = process.env.REACT_APP_API_URL || 'http://16.170.248.196:5001/api';
+    return raw.endsWith('/auth') ? raw : `${raw}/auth`;
+  };
+  const API_BASE = getBaseUrl();
 
   const showToast = (message, type = 'success') => {
     setToast({ isVisible: true, message, type });
@@ -74,45 +78,282 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
     }
   };
 
-  const handleRecoverySubmit = async (e) => {
+  // ─── Forgot Password Handlers ───
+  const handleForgotLookup = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API_BASE}/recovery/verify`, {
-        email: recoveryEmail,
-        answers: recoveryAnswers
+      const res = await axios.post(`${API_BASE}/forgot-password`, { email: formData.email || recoveryEmail });
+      setLoginDetails(res.data);
+      setRecoveryStep('otp');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Account not found.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotVerify = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const res = await axios.post(`${API_BASE}/verify-forgot-otp`, {
+        userId: loginDetails.userId,
+        otp: otpCode
       });
       setResetToken(res.data.resetToken);
       setRecoveryStep('reset');
+      setOtpCode('');
     } catch (err) {
-      setError(err.response?.data?.message || 'Security verification failed.');
+      setError(err.response?.data?.message || 'Invalid OTP.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePasswordReset = async (e) => {
+  const handleForgotReset = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      await axios.post(`${API_BASE}/recovery/reset`, {
+      await axios.post(`${API_BASE}/reset-password-forgot`, {
         resetToken,
         newPassword
       });
+      showToast('Vault credentials updated.', 'success');
       setRecoveryStep(null);
-      setError('');
-      showToast('Password reset successfully. Please log in with your new password.', 'success');
+      setShowOtp(false);
+      setFormData({ ...formData, password: '' });
     } catch (err) {
-      setError(err.response?.data?.message || 'Password reset failed.');
+      setError(err.response?.data?.message || 'Reconfiguration failed.');
     } finally {
       setLoading(false);
     }
   };
 
+  if (isLite) {
+    return (
+      <div className="w-full flex flex-col items-center justify-center p-0 z-20 relative">
+        <div className="w-full">
+          <div className="mb-8 text-center mt-4">
+            <h2 className="text-2xl font-bold mb-2">
+              {recoveryStep === 'lookup' ? 'Locate Vault' :
+               recoveryStep === 'otp' ? 'Verification Pulse' :
+               recoveryStep === 'reset' ? 'Reconfigure Master Key' :
+               showOtp ? 'Security Verification' : 'Sign In'}
+            </h2>
+            <p className="text-[var(--text-secondary)] text-sm font-medium">
+              {recoveryStep === 'lookup' ? 'Enter your email to search the ledger.' :
+               recoveryStep === 'otp' ? `We've sent a pulse to XXXXXX${loginDetails?.mobileSnippet}` :
+               recoveryStep === 'reset' ? 'Define your new master credentials.' :
+               showOtp ? `We've sent an OTP to your WhatsApp ending in ${loginDetails?.mobileSnippet}` :
+               'Enter your vault credentials to proceed.'}
+            </p>
+          </div>
+
+          {recoveryStep === 'lookup' && (
+            <motion.form initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleForgotLookup} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email Address</label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                  <input type="email" required placeholder="name@company.com" className="input-field pl-12 py-3"
+                    value={formData.email || recoveryEmail} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setRecoveryEmail(e.target.value); }} />
+                </div>
+              </div>
+              {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 text-xs font-bold"><AlertCircle size={18} /><span>{error}</span></div>}
+              <button disabled={loading} className="w-full btn-primary py-3.5 text-base group">
+                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>Locate Vault</span><ArrowRight size={18} /></>}
+              </button>
+              <button type="button" onClick={() => setRecoveryStep(null)} className="w-full text-center text-xs font-bold text-[var(--text-secondary)] hover:text-white pt-2 transition-colors uppercase tracking-widest">Back to Login</button>
+            </motion.form>
+          )}
+
+          {recoveryStep === 'otp' && (
+            <motion.form initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleForgotVerify} className="space-y-5">
+              <div className="space-y-2 text-center">
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Verification Code</label>
+                <div className="relative group">
+                  <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                  <input type="text" required maxLength="6" placeholder="••••••" className="input-field pl-12 text-center tracking-[0.5em] text-2xl font-bold py-3"
+                    value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} />
+                </div>
+              </div>
+              {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 text-xs font-bold"><AlertCircle size={18} /><span>{error}</span></div>}
+              <button disabled={loading} className="w-full btn-primary py-3.5 text-base group">
+                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>Verify Pulse</span><Shield size={18} /></>}
+              </button>
+              <button type="button" onClick={() => setRecoveryStep('lookup')} className="w-full text-center text-xs font-bold text-[var(--text-secondary)] hover:text-white pt-2 transition-colors uppercase tracking-widest">Change Email</button>
+            </motion.form>
+          )}
+
+          {recoveryStep === 'reset' && (
+            <motion.form initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleForgotReset} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">New Master Password</label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                  <input type={showPassword ? "text" : "password"} required placeholder="••••••••" className="input-field pl-12 pr-12 py-3"
+                    value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors">
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 text-xs font-bold"><AlertCircle size={18} /><span>{error}</span></div>}
+              <button disabled={loading} className="w-full btn-primary py-3.5 text-base group">
+                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>Apply Reconfiguration</span><ArrowRight size={18} /></>}
+              </button>
+            </motion.form>
+          )}
+
+          {!showOtp && !recoveryStep && (
+            <motion.form
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              onSubmit={handleSubmit}
+              className="space-y-5"
+            >
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email Address</label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@company.com"
+                    className="input-field pl-12 py-3"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center ml-1">
+                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Master Password</label>
+                  <button onClick={() => setRecoveryStep('lookup')} type="button" className="text-xs text-[var(--primary)] font-bold hover:underline">Lost access?</button>
+                </div>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    placeholder="••••••••"
+                    className="input-field pl-12 pr-12 py-3"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 my-2">
+                  <AlertCircle size={18} />
+                  <span className="text-xs font-bold">{error}</span>
+                </motion.div>
+              )}
+
+              <button
+                disabled={loading}
+                className="w-full btn-primary py-3.5 text-base"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-[var(--text-primary)]/30 border-t-[var(--text-primary)] rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Enter Vault</span>
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+            </motion.form>
+          )}
+
+          {showOtp && !recoveryStep && (
+            <motion.form
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              onSubmit={handleOtpSubmit}
+              className="space-y-5"
+            >
+              <div className="space-y-2 text-center">
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Verification Code</label>
+                <div className="relative group">
+                  <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                  <input
+                    type="text"
+                    required
+                    maxLength="6"
+                    placeholder="••••••"
+                    className="input-field pl-12 text-center tracking-[0.5em] text-2xl font-bold py-3"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 my-2">
+                  <AlertCircle size={18} />
+                  <span className="text-xs font-bold">{error}</span>
+                </div>
+              )}
+
+              <button
+                disabled={loading}
+                className="w-full btn-primary py-3.5 text-base"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-[var(--text-primary)]/30 border-t-[var(--text-primary)] rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Verify Identity</span>
+                    <Shield size={18} />
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowOtp(false)}
+                className="w-full text-center text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] pt-2 transition-colors"
+              >
+                Return to Login
+              </button>
+            </motion.form>
+          )}
+
+          <div className="mt-8 pt-8 border-t border-[var(--border)] text-center space-y-3">
+            <p className="text-xs text-[var(--text-secondary)] font-medium">
+              New to Stardust?{" "}
+              <button onClick={onRegisterClick} className="text-[var(--primary)] font-bold hover:underline">
+                Initialize Account
+              </button>
+            </p>
+            <p className="text-[10px] text-[var(--text-secondary)]/50 font-medium pb-4">
+              Need assistance?{" "}
+              <button onClick={() => setCurrentPage('recover-account')} className="text-indigo-400 font-bold hover:underline">
+                Emergency Recovery
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex bg-[var(--bg-app)] text-[var(--text-primary)] relative overflow-hidden">
+    <div className="h-screen flex bg-[var(--bg-app)] text-[var(--text-primary)] relative overflow-hidden">
       {/* Background Orbs */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
@@ -157,16 +398,79 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
       </div>
 
       {/* Right side: Login Form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 z-20 relative">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 z-20 relative overflow-y-auto custom-scrollbar">
         <div className="w-full max-w-md">
           <div className="mb-12 text-center lg:text-left">
-            <h2 className="text-4xl font-bold mb-3">{showOtp ? 'Security Verification' : 'Sign In'}</h2>
+            <h2 className="text-4xl font-bold mb-3">
+              {recoveryStep === 'lookup' ? 'Locate Vault' :
+               recoveryStep === 'otp' ? 'Verification Pulse' :
+               recoveryStep === 'reset' ? 'Reconfigure Master Key' :
+               showOtp ? 'Security Verification' : 'Sign In'}
+            </h2>
             <p className="text-[var(--text-secondary)] text-lg font-medium">
-              {showOtp
-                ? `We've sent an OTP to your WhatsApp ending in ${loginDetails?.mobileSnippet}`
-                : 'Enter your vault credentials to proceed.'}
+              {recoveryStep === 'lookup' ? 'Enter your email to search the ledger.' :
+               recoveryStep === 'otp' ? `We've sent a pulse to XXXXXX${loginDetails?.mobileSnippet}` :
+               recoveryStep === 'reset' ? 'Define your new master credentials.' :
+               showOtp ? `We've sent an OTP to your WhatsApp ending in ${loginDetails?.mobileSnippet}` :
+               'Enter your vault credentials to proceed.'}
             </p>
           </div>
+
+          {recoveryStep === 'lookup' && (
+            <motion.form initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleForgotLookup} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email Address</label>
+                <div className="relative group">
+                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
+                  <input type="email" required placeholder="name@company.com" className="input-field pl-14"
+                    value={formData.email || recoveryEmail} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setRecoveryEmail(e.target.value); }} />
+                </div>
+              </div>
+              {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-center space-x-3 my-4"><AlertCircle size={20} /><span>{error}</span></div>}
+              <button disabled={loading} className="w-full btn-primary py-4 text-lg">
+                {loading ? <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>Locate Vault</span><ArrowRight size={20} /></>}
+              </button>
+              <button type="button" onClick={() => setRecoveryStep(null)} className="w-full text-center text-sm font-bold text-[var(--text-secondary)] hover:text-white pt-4 transition-colors uppercase tracking-widest">Back to Login</button>
+            </motion.form>
+          )}
+
+          {recoveryStep === 'otp' && (
+            <motion.form initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleForgotVerify} className="space-y-6">
+              <div className="space-y-2 text-center">
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block">Verification Code</label>
+                <div className="relative group">
+                  <Shield className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
+                  <input type="text" required maxLength="6" placeholder="••••••" className="input-field pl-14 text-center tracking-[0.7em] text-3xl font-bold placeholder:tracking-normal"
+                    value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} />
+                </div>
+              </div>
+              {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-center space-x-3 my-4"><AlertCircle size={20} /><span>{error}</span></div>}
+              <button disabled={loading} className="w-full btn-primary py-4 text-lg">
+                {loading ? <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>Verify Pulse</span><Shield size={20} /></>}
+              </button>
+              <button type="button" onClick={() => setRecoveryStep('lookup')} className="w-full text-center text-sm font-bold text-[var(--text-secondary)] hover:text-white pt-4 transition-colors uppercase tracking-widest">Change Email</button>
+            </motion.form>
+          )}
+
+          {recoveryStep === 'reset' && (
+            <motion.form initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleForgotReset} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">New Master Password</label>
+                <div className="relative group">
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
+                  <input type={showPassword ? "text" : "password"} required placeholder="••••••••" className="input-field pl-14 pr-12"
+                    value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors">
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+              {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-center space-x-3 my-4"><AlertCircle size={20} /><span>{error}</span></div>}
+              <button disabled={loading} className="w-full btn-primary py-4 text-lg">
+                {loading ? <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>Apply Reconfiguration</span><ArrowRight size={20} /></>}
+              </button>
+            </motion.form>
+          )}
 
           {!showOtp && !recoveryStep && (
             <motion.form
@@ -193,7 +497,7 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage }) => {
               <div className="space-y-2">
                 <div className="flex justify-between items-center ml-1">
                   <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Master Password</label>
-                  <button onClick={() => setCurrentPage('forgot-password')} type="button" className="text-xs text-[var(--primary)] font-bold hover:underline">Lost access?</button>
+                  <button onClick={() => setRecoveryStep('lookup')} type="button" className="text-xs text-[var(--primary)] font-bold hover:underline">Lost access?</button>
                 </div>
                 <div className="relative group">
                   <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />

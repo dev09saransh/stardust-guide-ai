@@ -15,7 +15,7 @@ const AdminLoginPage = ({ onLoginSuccess, onBackToWelcome }) => {
         setError('');
 
         try {
-            const response = await axios.post('http://13.48.25.209:5001/api/auth/login', {
+            const response = await axios.post('http://16.170.248.196:5001/api/auth/login', {
                 identifier: formData.email,
                 password: formData.password
             });

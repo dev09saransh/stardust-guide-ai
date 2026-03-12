@@ -1,6 +1,6 @@
 const db = require('../config/db');
 const { sendEmailOTP, sendEmail } = require('./emailService'); // Reusing email infrastructure
-const { sendWhatsAppOTP, sendWhatsApp } = require('./twilioService'); // Reusing twilio infrastructure
+const { sendWhatsAppOTP, sendWhatsApp } = require('./msg91Service'); // Reusing msg91 infrastructure
 const crypto = require('crypto');
 
 /**
@@ -49,6 +49,7 @@ class InactivityService {
             if (check.length > 0) {
                 console.log(`📧 [INACTIVITY]: Sending reminder ${user.inactivity_reminder_count + 1} to ${user.email}`);
 
+                const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`;
                 // 1. Send Email Reminder
                 const emailSubject = `🚨 Action Required: Stardust Asset Management Pulse Check`;
                 const emailHtml = `
@@ -63,7 +64,7 @@ class InactivityService {
                         </div>
                         <p><strong>To prevent your legacy protocol from initiating:</strong> Please log in to your dashboard within the next ${user.inactivity_trigger_period - (user.inactivity_reminder_count * user.reminder_interval)} months.</p>
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="http://localhost:3000/login" style="background: #4f46e5; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">Log In to Reset Timer</a>
+                            <a href="${loginUrl}" style="background: #4f46e5; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">Log In to Reset Timer</a>
                         </div>
                         <p style="font-size: 12px; color: #6b7280; line-height: 1.6;">If you do not take action, your registered nominees will eventually be granted access to your vault metadata to begin the succession process.</p>
                     </div>
@@ -71,7 +72,7 @@ class InactivityService {
                 await sendEmail(user.email, emailSubject, emailHtml);
 
                 // 2. Send WhatsApp Reminder
-                const waMessage = `✨ [Stardust Security] Hi ${user.full_name}. This is your scheduled activity pulse. To keep your vault private and prevent legacy transfer, please log in at: http://localhost:3000/login`;
+                const waMessage = `✨ [Stardust Security] Hi ${user.full_name}. This is your scheduled activity pulse. To keep your vault private and prevent legacy transfer, please log in at: ${loginUrl}`;
                 await sendWhatsApp(user.mobile, waMessage);
 
                 // Increment reminder count
@@ -109,7 +110,7 @@ class InactivityService {
                     [user.user_id, nominee.nominee_id, token]
                 );
 
-                const successionLink = `http://localhost:3000/verify-succession?token=${token}`;
+                const successionLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-succession?token=${token}`;
                 console.log(`[INACTIVITY] Notifying nominee ${nominee.email} for vault ${user.user_id}`);
 
                 // 1. Send Nominee Email (Production Ready)
@@ -131,20 +132,20 @@ class InactivityService {
                                     <h3 style="font-size: 14px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 12px 0;">About Stardust</h3>
                                     <p style="margin: 0; font-size: 15px; color: #334155;">Stardust is a secure digital vault that helps individuals manage their financial life and ensure their legacy is never lost. Our platform automates the transfer of vital documents and asset details to family members in the event of unforeseen circumstances or prolonged inactivity.</p>
                                 </div>
-
+                                
                                 <p style="margin-bottom: 16px;">Because ${user.user_name}'s account has reached its <strong>${user.inactivity_trigger_period}-month inactivity threshold</strong>, our protocol has been initiated. If the account owner is no longer able to manage their assets, you are authorized to begin the succession process.</p>
-
+                                
                                 <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 12px;">Next Steps for Access:</h3>
                                 <ul style="margin: 0 0 32px 0; padding-left: 20px;">
                                     <li style="margin-bottom: 8px;"><strong>Verify Identity:</strong> Use the secure link below to confirm your contact details.</li>
                                     <li style="margin-bottom: 8px;"><strong>Provide Proof:</strong> Following the link, you will need to upload official documentation (e.g., ID or a certificate) for our safety team to review.</li>
                                     <li style="margin-bottom: 8px;"><strong>Wait for Synchronization:</strong> Once approved by our administrators, you will receive the final Master Security Code to unlock ${user.user_name}'s vault.</li>
                                 </ul>
-
+                                
                                 <div style="text-align: center; margin-bottom: 32px;">
                                     <a href="${successionLink}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; padding: 16px 32px; border-radius: 12px; font-weight: 700; text-decoration: none; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.4);">Initiate Verification Process</a>
                                 </div>
-
+                                
                                 <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">This communication is confidential. For your security, please do not share this link with anyone else. If you believe this was sent to you in error, please disregard it.</p>
                             </div>
                             

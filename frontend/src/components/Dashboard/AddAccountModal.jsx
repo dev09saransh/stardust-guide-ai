@@ -22,7 +22,7 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
         try {
             setLoading(true);
             const token = localStorage.getItem('stardust_token');
-            const res = await axios.get('http://13.48.25.209:5001/api/auth/nominee-opportunities', {
+            const res = await axios.get('http://16.170.248.196:5001/api/auth/nominee-opportunities', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setOpportunities(res.data);
@@ -38,7 +38,7 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
             setVerifying(true);
             setError('');
             const token = localStorage.getItem('stardust_token');
-            await axios.post('http://13.48.25.209:5001/api/auth/link-account', {
+            await axios.post('http://16.170.248.196:5001/api/auth/link-account', {
                 nomineeId: selectedNominee.nominee_id,
                 securityCode: securityCode
             }, {

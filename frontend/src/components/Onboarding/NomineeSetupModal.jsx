@@ -36,7 +36,7 @@ const NomineeSetupModal = ({ user, onComplete }) => {
     const [loading, setLoading] = useState(false);
     const [otpError, setOtpError] = useState('');
 
-    const API = 'http://13.48.25.209:5001/api/auth';
+    const API = 'http://16.170.248.196:5001/api/auth';
     const headers = { Authorization: `Bearer ${user.token}` };
 
     const validateStep = (currentStep) => {
@@ -384,7 +384,7 @@ const NomineeSetupModal = ({ user, onComplete }) => {
                                     key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                     style={{ display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center' }}
                                 >
-                                    <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', fontWeight: 500 }}>Check your console for the security code sent to your email.</p>
+                                    <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', fontWeight: 500 }}>Check your inbox for the security code sent to your email.</p>
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         {Array.from({ length: 6 }).map((_, i) => (
                                             <input
@@ -406,6 +406,7 @@ const NomineeSetupModal = ({ user, onComplete }) => {
                                     <button onClick={handleResendOTP} style={linkBtnStyle}>Resend Code</button>
                                 </motion.div>
                             )}
+
 
                             {/* STEP 5: Phone OTP */}
                             {step === 5 && (

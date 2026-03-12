@@ -5,12 +5,12 @@ import { Shield, CheckCircle, Loader2, X } from 'lucide-react';
 import ProfileProgressBar from './ProfileProgressBar';
 import ProfileStepCarousel from './ProfileStepCarousel';
 
-const API = 'http://13.48.25.209:5001/api/auth';
+const API = 'http://16.170.248.196:5001/api/auth';
 
 const TOTAL_FIELDS = [
     'full_name', 'email', 'mobile', 'address', 'gender', 'dob'
 ];
-const ProfileCompletionModal = ({ user, onComplete }) => {
+const ProfileCompletionModal = ({ user, onComplete, onClose }) => {
     const headers = useMemo(() => ({
         Authorization: `Bearer ${user?.token}`
     }), [user?.token]);
@@ -135,7 +135,7 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
             >
                 {/* Backdrop */}
                 <motion.div
-                    onClick={onComplete}
+                    onClick={onClose}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     style={{
@@ -163,7 +163,7 @@ const ProfileCompletionModal = ({ user, onComplete }) => {
                     {/* Close Button */}
                     <button
                         type="button"
-                        onClick={onComplete}
+                        onClick={onClose}
                         style={{
                             position: 'absolute', top: '18px', right: '18px', zIndex: 20,
                             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',

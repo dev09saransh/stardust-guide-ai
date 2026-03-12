@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Shield, User, Mail, Lock, Phone, ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://13.48.25.209:5001/api/auth';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://16.170.248.196:5001/api/auth';
 
 const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
   const [step, setStep] = useState(1);
@@ -124,7 +124,7 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] flex flex-col lg:flex-row text-[var(--text-primary)]">
+    <div className="h-screen bg-[var(--bg-app)] flex flex-col lg:flex-row text-[var(--text-primary)] overflow-hidden">
       {/* Brand Panel */}
       <div className="hidden lg:flex lg:flex-[0.4] celestial-bg text-white p-16 flex-col relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
@@ -166,7 +166,7 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
       </div>
 
       {/* Form Panel */}
-      <div className="flex-1 p-8 lg:p-24 flex items-center justify-center relative overflow-hidden">
+      <div className="flex-1 p-8 lg:p-24 flex items-center justify-center relative overflow-y-auto custom-scrollbar">
         {/* Background Orbs */}
         <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-indigo-600/5 rounded-full blur-[100px] pointer-events-none" />

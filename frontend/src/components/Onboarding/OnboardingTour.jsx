@@ -175,12 +175,12 @@ const OnboardingTour = ({ user, onComplete, onStepChange }) => {
     const { openAuthModal, isAuthenticated } = useAuth();
 
     useEffect(() => {
-        const localOnboarded = localStorage.getItem('stardust_onboarded') === 'true';
-        const sessionOnboarded = sessionStorage.getItem('stardust_tour_seen') === 'true';
+        const carouselComplete = sessionStorage.getItem('stardust_session_onboarded') === 'true';
+        const sessionTourSeen = sessionStorage.getItem('stardust_tour_seen') === 'true';
 
-        // Auto-start tour if carousel complete, but hasn't been seen in this session
-        if (!sessionOnboarded && (!user?.user || !user.user.has_completed_onboarding)) {
-            const timer = setTimeout(() => setRun(true), 1200);
+        // Auto-start tour ONLY IF carousel is complete AND tour hasn't been seen in this session
+        if (carouselComplete && !sessionTourSeen && (!user?.user || !user.user.has_completed_onboarding)) {
+            const timer = setTimeout(() => setRun(true), 800);
             return () => clearTimeout(timer);
         }
     }, [user]);
@@ -191,7 +191,7 @@ const OnboardingTour = ({ user, onComplete, onStepChange }) => {
         if (user?.token) {
             try {
                 await axios.post(
-                    'http://13.48.25.209:5001/api/auth/complete-onboarding',
+                    'http://16.170.248.196:5001/api/auth/complete-onboarding',
                     {},
                     { headers: { Authorization: `Bearer ${user.token}` } }
                 );

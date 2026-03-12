@@ -6,9 +6,13 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API = process.env.REACT_APP_API_URL || 'http://13.48.25.209:5001/api/auth';
+const getBaseUrl = () => {
+  const raw = process.env.REACT_APP_API_URL || 'http://16.170.248.196:5001/api';
+  return raw.endsWith('/auth') ? raw : `${raw}/auth`;
+};
+const API = getBaseUrl();
 
-const RecoverAccountPage = ({ onBackToLogin }) => {
+const RecoverAccountPage = ({ onBackToLogin, isLite = false }) => {
     // Steps: 1=Identify, 2=Choose OTP method, 3=Enter OTP, 4=Security Questions, 5=Update Account, 6=Success
     const [step, setStep] = useState(1);
     const [identifier, setIdentifier] = useState('');
@@ -181,6 +185,216 @@ const RecoverAccountPage = ({ onBackToLogin }) => {
         5: 'Reconfigure your master credentials securely.',
         6: 'Your vault access has been restored successfully.'
     };
+
+    if (isLite) {
+        return (
+            <div className="w-full relative z-10">
+                <div className="overflow-hidden">
+                    {/* Header */}
+                    <div className="celestial-bg p-8 text-center relative rounded-t-3xl">
+                        <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
+                        </div>
+
+                        <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-[1.5rem] flex items-center justify-center border border-white/10 mx-auto mb-4 shadow-2xl relative z-10">
+                            {step === 6 ? <CheckCircle2 size={32} className="text-emerald-400" /> : step === 4 ? <HelpCircle size={32} /> : <Shield size={32} />}
+                        </div>
+                        <h2 className="text-2xl font-bold mb-1 tracking-tight relative z-10">{stepTitles[step]}</h2>
+                        <p className="text-blue-100/60 font-medium text-xs max-w-xs mx-auto relative z-10">{stepDescs[step]}</p>
+
+                        {/* Progress Tracker */}
+                        <div className="flex justify-center gap-2 mt-6 relative z-10">
+                            {[1, 2, 3, 4, 5, 6].map(s => (
+                                <div
+                                    key={s}
+                                    className={`h-1 rounded-full transition-all duration-500 ${s === step ? 'w-8 bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]' : s < step ? 'w-3 bg-white/40' : 'w-3 bg-white/10'
+                                        }`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="p-8">
+                        <AnimatePresence mode="wait">
+
+                            {/* ─── STEP 1: IDENTIFY ─── */}
+                            {step === 1 && (
+                                <motion.form key="s1" variants={anim} initial="hidden" animate="visible" exit="exit" onSubmit={handleLookup} className="space-y-5">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Account Identifier</label>
+                                        <div className="relative group">
+                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                                            <input type="text" required placeholder="Email or Phone Link"
+                                                className="input-field pl-12 py-3" value={identifier}
+                                                onChange={e => setIdentifier(e.target.value)} />
+                                        </div>
+                                    </div>
+                                    {error && (
+                                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 text-xs font-bold">
+                                            <AlertCircle size={18} />
+                                            <span>{error}</span>
+                                        </motion.div>
+                                    )}
+                                    <button disabled={loading} className="w-full btn-primary py-4 text-base group">
+                                        {loading ? <Loader2 size={18} className="animate-spin" /> : <><span>Locate Vault</span> <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>}
+                                    </button>
+                                    <button type="button" onClick={onBackToLogin} className="w-full flex items-center justify-center space-x-2 text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors uppercase tracking-widest pt-2">
+                                        <ArrowLeft size={14} /><span>Return to Gate</span>
+                                    </button>
+                                </motion.form>
+                            )}
+
+                            {/* ─── STEP 2: CHOOSE OTP METHOD ─── */}
+                            {step === 2 && (
+                                <motion.div key="s2" variants={anim} initial="hidden" animate="visible" exit="exit" className="space-y-3">
+                                    <p className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1 mb-2">Select Decryption Channel</p>
+                                    {methods.map(m => (
+                                        <button key={m.id} onClick={() => handleSelectMethod(m)} disabled={loading}
+                                            className="w-full flex items-center p-4 glass rounded-[1.25rem] border-white/5 hover:border-[var(--primary)]/30 hover:bg-white/[0.05] transition-all group text-left relative overflow-hidden">
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mr-4 transition-transform group-hover:scale-110 border ${methodColors[m.id]}`}>
+                                                {methodIcons[m.id] || <Key size={22} />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-bold text-sm text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">{m.label}</p>
+                                                <p className="text-[10px] text-[var(--text-secondary)] font-medium mt-0.5">{m.hint}</p>
+                                            </div>
+                                            <ArrowRight size={18} className="text-[var(--text-primary)] opacity-10 group-hover:opacity-100 group-hover:text-[var(--primary)] group-hover:translate-x-1 transition-all" />
+                                        </button>
+                                    ))}
+                                    {loading && <div className="flex justify-center py-2"><Loader2 size={24} className="animate-spin text-[var(--primary)]" /></div>}
+                                    <button type="button" onClick={() => { setStep(1); setError(''); }}
+                                        className="w-full text-center text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] pt-4 transition-colors font-medium">
+                                        <ArrowLeft size={14} className="inline mr-2" />Try different identifier
+                                    </button>
+                                </motion.div>
+                            )}
+
+                            {/* ─── STEP 3: ENTER OTP ─── */}
+                            {step === 3 && (
+                                <motion.form key="s3" variants={anim} initial="hidden" animate="visible" exit="exit" onSubmit={handleVerifyOtp} className="space-y-6">
+                                    <div className="space-y-3 text-center">
+                                        <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest">Verification Pulse</label>
+                                        <div className="relative group">
+                                            <Shield className="absolute left-6 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                                            <input type="text" required maxLength="6" placeholder="••••••"
+                                                className="w-full pl-14 pr-6 py-4 bg-[var(--surface-glass)] border border-[var(--border)] rounded-xl outline-none focus:bg-[var(--surface)] focus:border-[var(--primary)] transition-all font-bold tracking-[0.5em] text-center text-2xl text-[var(--text-primary)] placeholder:tracking-normal"
+                                                value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} />
+                                        </div>
+                                    </div>
+                                    {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 text-xs font-bold"><AlertCircle size={18} /><span>{error}</span></div>}
+                                    <button disabled={loading || otp.length < 6} className="w-full btn-primary py-4 text-base group">
+                                        {loading ? <Loader2 size={18} className="animate-spin" /> : <><span>Decrypt Pulse</span> <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>}
+                                    </button>
+                                    <div className="flex flex-col items-center gap-3 pt-1">
+                                        <button type="button" onClick={() => selectedMethod && handleSelectMethod(selectedMethod)}
+                                            className="text-xs font-bold text-[var(--primary)] hover:underline">Re-send Verification Pulse</button>
+                                        <button type="button" onClick={() => { setStep(2); setOtp(''); setError(''); setSelectedMethod(null); }}
+                                            className="text-xs font-bold text-[var(--text-secondary)] hover:text-white transition-colors">
+                                            <ArrowLeft size={12} className="inline mr-1" />Change Channel
+                                        </button>
+                                    </div>
+                                </motion.form>
+                            )}
+
+                            {/* ─── STEP 4: SECURITY QUESTIONS (MANDATORY) ─── */}
+                            {step === 4 && (
+                                <motion.form key="s4" variants={anim} initial="hidden" animate="visible" exit="exit" onSubmit={handleVerifySecurity} className="space-y-5">
+                                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-xl flex items-center space-x-3 text-xs font-bold">
+                                        <CheckCircle2 size={18} className="shrink-0" />
+                                        <span>Pulse Decrypted. Proceeding to Protocol Review.</span>
+                                    </div>
+
+                                    {securityQuestions.map((q, idx) => (
+                                        <div key={q.question_id} className="space-y-2 p-4 glass rounded-[1rem] border-[var(--border)]">
+                                            <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1 block">{q.question}</label>
+                                            <input type="text" required placeholder="Pulse answer" className="input-field py-2 bg-[var(--surface-glass)] text-[var(--text-primary)] text-sm"
+                                                value={securityAnswers[idx]?.answer || ''}
+                                                onChange={e => {
+                                                    const updated = [...securityAnswers];
+                                                    updated[idx] = { ...updated[idx], answer: e.target.value };
+                                                    setSecurityAnswers(updated);
+                                                }} />
+                                        </div>
+                                    ))}
+
+                                    {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 text-xs font-bold"><AlertCircle size={18} /><span>{error}</span></div>}
+                                    <button disabled={loading} className="w-full btn-primary py-4 text-base group">
+                                        {loading ? <Loader2 size={18} className="animate-spin" /> : <><span>Validate Identity</span> <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>}
+                                    </button>
+                                </motion.form>
+                            )}
+
+                            {/* ─── STEP 5: UPDATE ACCOUNT ─── */}
+                            {step === 5 && (
+                                <motion.form key="s5" variants={anim} initial="hidden" animate="visible" exit="exit" onSubmit={handleUpdate} className="space-y-5">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">New Digital Mail</label>
+                                        <div className="relative group">
+                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                                            <input type="email" placeholder="Update Email (Optional)" className="input-field pl-12 py-2.5"
+                                                value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">New Contact Link</label>
+                                        <div className="relative group">
+                                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                                            <input type="tel" placeholder="Update Phone (Optional)" className="input-field pl-12 py-2.5"
+                                                value={editForm.mobile} onChange={e => setEditForm({ ...editForm, mobile: e.target.value })} />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">New Master Key</label>
+                                            <div className="relative group">
+                                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                                                <input type={showPassword ? 'text' : 'password'} placeholder="••••••••" className="input-field pl-12 pr-12 py-2.5"
+                                                    value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} />
+                                                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Repeat Master Key</label>
+                                            <div className="relative group">
+                                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                                                <input type="password" placeholder="••••••••" className="input-field pl-12 py-2.5"
+                                                    value={editForm.confirmPassword} onChange={e => setEditForm({ ...editForm, confirmPassword: e.target.value })} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="text-[9px] text-[var(--text-secondary)] text-center uppercase tracking-widest opacity-50 font-bold">Null values will retain legacy parameters.</p>
+                                    {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 text-xs font-bold"><AlertCircle size={18} /><span>{error}</span></div>}
+                                    <button disabled={loading} className="w-full btn-primary py-4 text-base group font-bold">
+                                        {loading ? <Loader2 size={18} className="animate-spin" /> : <><span>Commit Reconfiguration</span> <CheckCircle2 size={18} /></>}
+                                    </button>
+                                </motion.form>
+                            )}
+
+                            {/* ─── STEP 6: SUCCESS ─── */}
+                            {step === 6 && (
+                                <motion.div key="s6" variants={anim} initial="hidden" animate="visible" className="text-center space-y-6 py-4">
+                                    <div className="w-20 h-20 bg-emerald-500/20 rounded-[2rem] flex items-center justify-center mx-auto border border-emerald-500/30 shadow-2xl shadow-emerald-500/10">
+                                        <CheckCircle2 size={40} className="text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-1 tracking-tight">Access Restored</h3>
+                                        <p className="text-sm text-[var(--text-secondary)] font-medium">Your account parameters have been re-encrypted successfully.</p>
+                                    </div>
+                                    <button onClick={onBackToLogin} className="w-full btn-primary py-4 text-lg font-bold glow-on-hover mt-4">
+                                        Enter Vault
+                                    </button>
+                                </motion.div>
+                            )}
+
+                        </AnimatePresence>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-[var(--bg-app)] text-[var(--text-primary)] relative overflow-hidden p-6">

@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, User, Mail, Lock, Phone, ArrowRight, X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import LoginPage from '../../pages/LoginPage';
+import RecoverAccountPage from '../../pages/RecoverAccountPage';
 
-const API = process.env.REACT_APP_API_URL || 'http://13.48.25.209:5001/api';
+const API = process.env.REACT_APP_API_URL || 'http://16.170.248.196:5001/api';
 
 const AuthModal = () => {
     const { showAuthModal, closeAuthModal, authModalTab, setAuthModalTab, login, register, showToast } = useAuth();
@@ -422,6 +424,23 @@ const AuthModal = () => {
                                             </div>
 
                                             {errorBox(loginError)}
+                                            
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '-8px', marginBottom: '8px' }}>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setAuthModalTab('forgot-password')}
+                                                    style={{ background: 'none', border: 'none', color: 'rgba(99, 102, 241, 0.8)', fontSize: '11px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                                                >
+                                                    Lost Access?
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setAuthModalTab('recover-account')}
+                                                    style={{ background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.4)', fontSize: '11px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                                                >
+                                                    Emergency Recovery
+                                                </button>
+                                            </div>
 
                                             <button type="submit" disabled={loginLoading} style={btnPrimary}>
                                                 {loginLoading ? spinner : <><span>Sign In</span><ArrowRight size={18} /></>}
@@ -447,6 +466,27 @@ const AuthModal = () => {
                                             </button>
                                         </form>
                                     )}
+                                </motion.div>
+                            )}
+
+                            {/* ─── FORGOT PASSWORD ─── */}
+                            {authModalTab === 'forgot-password' && (
+                                <motion.div key="forgot" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+                                    <LoginPage 
+                                        isLite={true} 
+                                        onBack={() => setAuthModalTab('login')} 
+                                        onLoginSuccess={login}
+                                        onRegisterClick={() => setAuthModalTab('signup')}
+                                        setCurrentPage={setAuthModalTab}
+                                        initialStep="forgot-password"
+                                    />
+                                </motion.div>
+                            )}
+
+                            {/* ─── RECOVER ACCOUNT ─── */}
+                            {authModalTab === 'recover-account' && (
+                                <motion.div key="recover" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+                                    <RecoverAccountPage isLite={true} onBackToLogin={() => setAuthModalTab('login')} />
                                 </motion.div>
                             )}
 

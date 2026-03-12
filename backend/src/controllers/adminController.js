@@ -1,6 +1,6 @@
 const db = require('../config/db');
 const { sendEmail } = require('../services/emailService');
-const { sendWhatsApp } = require('../services/twilioService');
+const { sendWhatsApp } = require('../services/msg91Service');
 
 // @route   GET api/admin/users
 // @desc    Get all users for management
@@ -38,29 +38,60 @@ const deleteUser = async (req, res) => {
         return res.status(403).json({ message: 'Action Denied: You cannot delete your own admin account.' });
     }
 
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
+    let connection;
     try {
-        // Find any nominees to purge their shadow accounts
-        const [nominees] = await connection.execute('SELECT email, mobile FROM nominees WHERE user_id = ?', [userId]);
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+        console.log(`🗑️ [ADMIN DELETE]: Initiating robust purge for User ${userId}`);
+        
+        // Disable FK checks for a clean sweep
+        await connection.execute('SET FOREIGN_KEY_CHECKS = 0');
 
-        // Delete related data first (Security answers, assets, OTPs)
-        await connection.execute('DELETE FROM user_security_answers WHERE user_id = ?', [userId]);
-        await connection.execute('DELETE FROM assets WHERE user_id = ?', [userId]);
-        await connection.execute('DELETE FROM otp_codes WHERE user_id = ?', [userId]);
-        await connection.execute('DELETE FROM audit_logs WHERE user_id = ?', [userId]);
+        // Helper to run delete queries safely
+        const safeQuery = async (sql, params) => {
+            try {
+                await connection.execute(sql, params);
+            } catch (err) {
+                console.warn(`⚠️ [ADMIN DELETE]: Non-critical step failed: ${sql}. Error: ${err.message}`);
+                // Continue despite non-critical failure
+            }
+        };
 
-        // Delete the nominee records
-        await connection.execute('DELETE FROM nominees WHERE user_id = ?', [userId]);
+        // 1. Identify shadow accounts (NOMINEE role) before deleting the primary user's nominees
+        const [nomineeRecs] = await connection.execute('SELECT email, mobile FROM nominees WHERE user_id = ?', [userId]);
+        
+        // 2. Clear any links where this user is someone else's nominee (linked_user_id)
+        await safeQuery('UPDATE nominees SET linked_user_id = NULL WHERE linked_user_id = ?', [userId]);
 
-        // Delete shadow nominee users
-        for (const nominee of nominees) {
-            await connection.execute('DELETE FROM users WHERE (email = ? OR mobile = ?) AND role = "NOMINEE"', [nominee.email, nominee.mobile]);
+        // 3. Purge all child records across all known tables
+        const tablesToClear = [
+            'audit_logs',
+            'assets',
+            'nominees',
+            'succession_requests',
+            'user_security_answers',
+            'otp_codes'
+        ];
+
+        for (const table of tablesToClear) {
+            await safeQuery(`DELETE FROM ${table} WHERE user_id = ?`, [userId]);
+        }
+        
+        // 4. Clean up shadow accounts created for this user's nominees
+        for (const nominee of nomineeRecs) {
+            if (nominee.email || nominee.mobile) {
+                await safeQuery(
+                    'DELETE FROM users WHERE role = "NOMINEE" AND (email = ? OR mobile = ?)', 
+                    [nominee.email || '---', nominee.mobile || '---']
+                );
+            }
         }
 
-        // Final user deletion
+        // 5. Final user deletion
         const [result] = await connection.execute('DELETE FROM users WHERE user_id = ?', [userId]);
+
+        // 6. Re-enable FK checks
+        await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
 
         if (result.affectedRows === 0) {
             await connection.rollback();
@@ -68,13 +99,20 @@ const deleteUser = async (req, res) => {
         }
 
         await connection.commit();
+        console.log(`✅ [ADMIN DELETE]: User ${userId} and all child data purged.`);
         res.json({ message: 'User and all associated data purged successfully' });
+
     } catch (error) {
+        try { await connection.execute('SET FOREIGN_KEY_CHECKS = 1'); } catch (e) {}
         await connection.rollback();
-        console.error('Critical error during user deletion:', error);
-        res.status(500).json({ message: 'Critical error during user deletion' });
+        console.error('❌ [ADMIN DELETE ERROR]:', error);
+        res.status(500).json({ 
+            message: 'Purge Failed', 
+            error: error.sqlMessage || error.message,
+            code: error.code 
+        });
     } finally {
-        connection.release();
+        if (connection) connection.release();
     }
 };
 
@@ -166,6 +204,7 @@ const handleSuccessionRequest = async (req, res) => {
 
                 if (details.length > 0) {
                     const d = details[0];
+                    const prodUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
                     const approvalSubject = `✅ Access Granted: ${d.owner_name}'s Stardust Vault`;
                     const approvalHtml = `
                         <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #1a1a1a; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 20px;">
@@ -180,7 +219,7 @@ const handleSuccessionRequest = async (req, res) => {
 
                             <h3 style="font-size: 18px; font-weight: 700;">Final Steps to Access:</h3>
                             <ol style="line-height: 1.8;">
-                                <li><strong>Join Stardust:</strong> If you don't have an account, create one at <a href="http://localhost:3000/signup">localhost:3000/signup</a>.</li>
+                                <li><strong>Join Stardust:</strong> If you don't have an account, create one at <a href="${prodUrl}/signup">${prodUrl}/signup</a>.</li>
                                 <li><strong>Link the Vault:</strong> Go to your Dashboard, click <strong>"Add Account"</strong> (or "Link Legacy Vault").</li>
                                 <li><strong>Input Code:</strong> Enter the Master Security Code provided above when prompted.</li>
                             </ol>
@@ -192,7 +231,7 @@ const handleSuccessionRequest = async (req, res) => {
                     `;
                     await sendEmail(d.nominee_email, approvalSubject, approvalHtml);
 
-                    const approvalWAMsg = `✅ [Stardust] Verification Complete! You now have access to ${d.owner_name}'s vault. Your Master Security Code is: ${d.security_code}. Log in to localhost:3000 to link the account.`;
+                    const approvalWAMsg = `✅ [Stardust] Verification Complete! You now have access to ${d.owner_name}'s vault. Your Master Security Code is: ${d.security_code}. Log in to ${prodUrl} to link the account.`;
                     await sendWhatsApp(d.nominee_mobile, approvalWAMsg);
                 }
             } catch (notifyErr) {

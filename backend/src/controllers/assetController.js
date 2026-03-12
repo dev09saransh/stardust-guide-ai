@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { encrypt, decrypt } = require('../utils/crypto');
 
 // @desc    Add a new asset
 // @route   POST /api/assets
@@ -7,9 +8,10 @@ const addAsset = async (req, res) => {
     const userId = req.user.id;
 
     try {
+        const encryptedMetadata = encrypt(JSON.stringify(metadata));
         const [result] = await db.execute(
             'INSERT INTO assets (user_id, category, title, metadata, is_encrypted) VALUES (?, ?, ?, ?, ?)',
-            [userId, category, title, JSON.stringify(metadata), is_encrypted]
+            [userId, category, title, encryptedMetadata, is_encrypted]
         );
 
         res.status(201).json({
@@ -33,12 +35,11 @@ const getAssets = async (req, res) => {
     try {
         if (vaultContext && vaultContext !== 'null') {
             const targetUserId = parseInt(vaultContext);
-            // Verify access: current user must be a nominee for targetUserId AND targetUserId must be in GREEN status
+            // Verify access: current user must be an explicitly linked nominee for targetUserId
             const [accessRows] = await db.execute(`
-                SELECT u.user_id 
-                FROM users u 
-                JOIN nominees n ON u.user_id = n.user_id 
-                WHERE u.user_id = ? AND n.linked_user_id = ? AND u.succession_status = 'GREEN'
+                SELECT n.nominee_id 
+                FROM nominees n 
+                WHERE n.user_id = ? AND n.linked_user_id = ?
             `, [targetUserId, req.user.id]);
 
             console.log(`[GET ASSETS] targetUserId=${targetUserId}, req.user.id=${req.user.id}, accessRows.length=${accessRows.length}`);
@@ -65,11 +66,27 @@ const getAssets = async (req, res) => {
 
         const [rows] = await db.execute(query, params);
 
-        // Parse metadata JSON
-        const assets = rows.map(asset => ({
-            ...asset,
-            metadata: typeof asset.metadata === 'string' ? JSON.parse(asset.metadata) : asset.metadata
-        }));
+        // Decrypt and Parse metadata JSON
+        const assets = rows.map(asset => {
+            let metadataStr = asset.metadata;
+            // Attempt decryption
+            if (metadataStr && metadataStr.includes(':')) {
+                metadataStr = decrypt(metadataStr);
+            }
+            
+            let parsedMetadata = {};
+            try {
+                parsedMetadata = typeof metadataStr === 'string' ? JSON.parse(metadataStr) : metadataStr;
+            } catch (pErr) {
+                console.error('[PARSE ERROR] Asset ID:', asset.asset_id, pErr.message);
+                parsedMetadata = { error: 'Failed to parse metadata', raw: metadataStr };
+            }
+
+            return {
+                ...asset,
+                metadata: parsedMetadata
+            };
+        });
 
         res.json(assets);
     } catch (error) {
@@ -86,9 +103,10 @@ const updateAsset = async (req, res) => {
     const userId = req.user.id;
 
     try {
+        const encryptedMetadata = encrypt(JSON.stringify(metadata));
         const [result] = await db.execute(
             'UPDATE assets SET category = ?, title = ?, metadata = ?, is_encrypted = ? WHERE asset_id = ? AND user_id = ?',
-            [category, title, JSON.stringify(metadata), is_encrypted, assetId, userId]
+            [category, title, encryptedMetadata, is_encrypted, assetId, userId]
         );
 
         if (result.affectedRows === 0) {

@@ -1,19 +1,25 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
+});
 
 /**
- * Sends an OTP email using Resend
+ * Sends an OTP email using AWS SES (via Nodemailer)
  * @param {string} to - The recipient's email address
  * @param {string} otp - The 6-digit OTP code
  */
 const sendEmailOTP = async (to, otp) => {
-    // Basic verification of environment variables
-    if (!process.env.RESEND_API_KEY) {
-        // Fallback mock print if Resend is not configured
-        console.log(`⚠️ RESEND API KEY NOT CONFIGURED. MOCK EMAIL OTP to ${to}: ${otp} ⚠️`);
-        return true;
+    if (!process.env.SMTP_HOST) {
+        console.log(`⚠️ SMTP NOT CONFIGURED. MOCK EMAIL OTP to ${to}: ${otp} ⚠️`);
+        return { success: true, mock: true };
     }
 
     try {
@@ -35,40 +41,42 @@ const sendEmailOTP = async (to, otp) => {
             </div>
         `;
 
-        const data = await resend.emails.send({
-            from: 'Stardust Security <onboarding@resend.dev>', // Replace with your verified domain later e.g. hello@yourdomain.com
-            to: [to],
+        const info = await transporter.sendMail({
+            from: process.env.EMAIL_FROM || '"Stardust Security" <onboarding@resend.dev>',
+            to: to,
             subject: 'Your Stardust Verification Code',
             html: htmlContent,
         });
 
-        console.log(`✅ [RESEND EMAIL] OTP sent to ${to}. Message ID: ${data.id}`);
-        return data;
+        console.log(`✅ [SES EMAIL] OTP sent to ${to}. Message ID: ${info.messageId}`);
+        return info;
     } catch (err) {
-        console.error('❌ [RESEND EMAIL ERROR]:', err.message);
+        console.error('❌ [SES EMAIL ERROR]:', err.message);
         return { error: err.message };
     }
 };
 
 const sendEmail = async (to, subject, html) => {
-    if (!process.env.RESEND_API_KEY) {
-        console.warn(`⚠️ RESEND API KEY NOT CONFIGURED. MOCK EMAIL to ${to}`);
-        return { id: 'mock_id' };
+    if (!process.env.SMTP_HOST) {
+        console.warn(`⚠️ SMTP NOT CONFIGURED. MOCK EMAIL to ${to}`);
+        return { id: 'mock_id', success: true };
     }
 
     try {
-        const data = await resend.emails.send({
-            from: 'Stardust <vault@resend.dev>',
-            to: [to],
+        const info = await transporter.sendMail({
+            from: process.env.EMAIL_FROM || '"Stardust" <vault@resend.dev>',
+            to: to,
             subject: subject,
             html: html,
         });
-        console.log(`✅ [RESEND EMAIL] Sent to ${to}. Message ID: ${data.id}`);
-        return data;
+        console.log(`✅ [SES EMAIL] Sent to ${to}. Message ID: ${info.messageId}`);
+        return info;
     } catch (err) {
-        console.error('❌ [RESEND EMAIL ERROR]:', err.message);
+        console.error('❌ [SES EMAIL ERROR]:', err.message);
         return { error: err.message };
     }
 };
 
 module.exports = { sendEmailOTP, sendEmail };
+
+

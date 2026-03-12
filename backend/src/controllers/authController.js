@@ -3,6 +3,7 @@ const db = require('../config/db');
 const { compareData, hashData } = require('../utils/hash');
 const jwt = require('jsonwebtoken');
 const { sendEmailOTP } = require('../services/emailService');
+const { sendWhatsAppOTP } = require('../services/msg91Service');
 
 const generateSecurityCode = async () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -85,13 +86,17 @@ const login = async (req, res) => {
         await InactivityService.resetInactivityOnLogin(user.user_id);
 
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        await db.execute(
-            'INSERT INTO audit_logs (user_id, action, ip_address, device_info) VALUES (?, ?, ?, ?)',
-            [user.user_id, 'LOGIN_ATTEMPT_SUCCESS', ip, req.headers['user-agent']]
-        );
+        try {
+            await db.execute(
+                'INSERT INTO audit_logs (user_id, action, ip_address, device_info) VALUES (?, ?, ?, ?)',
+                [user.user_id, 'LOGIN_ATTEMPT_SUCCESS', ip, req.headers['user-agent']]
+            );
+        } catch (auditErr) {
+            console.error('⚠️ [AUDIT LOG ERROR]: Table likely missing or schema mismatch:', auditErr.message);
+            // We don't block login just because audit logging failed
+        }
 
         // STRICTLY REAL TWILIO SENDING
-        const { sendWhatsAppOTP } = require('../services/twilioService');
         try {
             await sendWhatsAppOTP(user.mobile, otp);
         } catch (twilioErr) {
@@ -145,13 +150,21 @@ const register = async (req, res) => {
     try {
         // Check if user already exists
         const [existing] = await connection.execute(
-            'SELECT * FROM users WHERE email = ? OR mobile = ?',
+            'SELECT user_id, is_verified FROM users WHERE email = ? OR mobile = ?',
             [email, mobile]
         );
 
         if (existing.length > 0) {
-            await connection.rollback();
-            return res.status(400).json({ message: 'User with this email or mobile already exists' });
+            if (existing[0].is_verified) {
+                await connection.rollback();
+                return res.status(400).json({ message: 'User with this email or mobile already exists' });
+            } else {
+                // If the existing user is NOT verified, we allow the registration to "reset" 
+                // This prevents unverified ghost accounts from blocking new attempts.
+                console.log(`♻️ [REGISTRATION]: Purging unverified ghost record for ${email}`);
+                await connection.execute('DELETE FROM users WHERE user_id = ?', [existing[0].user_id]);
+                // Deletion will CASCADE to child records (security answers, old OTPs)
+            }
         }
 
         const password_hash = await hashData(password);
@@ -198,7 +211,6 @@ const register = async (req, res) => {
 
         await connection.commit();
 
-        const { sendWhatsAppOTP } = require('../services/twilioService');
         try {
             await sendWhatsAppOTP(mobile, otp);
         } catch (twilioErr) {
@@ -395,7 +407,6 @@ const forgotPassword = async (req, res) => {
         console.log(`FORGOT PASSWORD OTP for ${user.email}: ${otp}`);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-        const { sendWhatsAppOTP } = require('../services/twilioService');
         try {
             await sendWhatsAppOTP(user.mobile, otp);
             res.json({
@@ -587,7 +598,6 @@ const sendNomineePhoneOTP = async (req, res) => {
         const otp_hash = await hashData(otp);
         const expires_at = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
         await db.execute('INSERT INTO otp_codes (user_id, otp_code, channel, expires_at) VALUES (?, ?, ?, ?)', [userId, otp_hash, 'WHATSAPP', expires_at]);
-        const { sendWhatsAppOTP } = require('../services/twilioService');
         await sendWhatsAppOTP(fullMobile, otp);
         res.json({ message: `OTP sent to ${fullMobile}` });
     } catch (error) {
@@ -640,7 +650,8 @@ const getNomineeOpportunities = async (req, res) => {
             SELECT u_target.full_name, u_target.email, n.nominee_id, n.relationship
             FROM nominees n
             JOIN users u_target ON n.user_id = u_target.user_id
-            WHERE n.email = ? OR n.mobile = ?
+            WHERE (n.email = ? OR n.mobile = ?)
+            AND n.linked_user_id IS NULL
         `, [email, mobile]);
         res.json(rows);
     } catch (error) {
@@ -675,13 +686,10 @@ const linkNomineeAccount = async (req, res) => {
         const isMatchCode = (sanitize(securityCode) === sanitize(ownerRows[0].security_code));
         if (!isMatchCode) return res.status(400).json({ message: 'Invalid security code' });
 
-        // Link the nominee record to the current user if not already linked
+        // Link the nominee record to the current user
         await db.execute('UPDATE nominees SET linked_user_id = ? WHERE nominee_id = ?', [currentUserId, nomineeId]);
 
-        // Set succession status to GREEN for inheritance access (view-only)
-        // Note: In a more complex system, we'd have a separate 'account_access' table.
-        // For now, setting succession_status = 'GREEN' enables it in inheritedController.
-        await db.execute('UPDATE users SET succession_status = "GREEN" WHERE user_id = ?', [ownerId]);
+        // Success: the account will now appear in getInheritedAccounts and be accessible in assetController
 
         res.json({ success: true, message: 'Vault linked successfully to your profile' });
     } catch (error) {
@@ -817,10 +825,164 @@ const getProfileCompletion = async (req, res) => {
     }
 };
 
-const recoverLookup = async (req, res) => { res.json({ message: 'Not implemented' }); };
-const recoverSendOTP = async (req, res) => { res.json({ message: 'Not implemented' }); };
-const recoverVerify = async (req, res) => { res.json({ message: 'Not implemented' }); };
-const recoverUpdateAccount = async (req, res) => { res.json({ message: 'Not implemented' }); };
+const recoverLookup = async (req, res) => {
+    const { identifier } = req.body;
+    try {
+        const user = await User.findByIdentifier(identifier);
+        if (!user) return res.status(404).json({ message: 'Account not found in the distributed ledger.' });
+
+        const [nominees] = await db.execute('SELECT COUNT(*) as count FROM nominees WHERE user_id = ?', [user.user_id]);
+
+        const methods = [
+            { id: 'email', label: 'Email Pulse', hint: `Send to ${user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3')}` },
+            { id: 'phone', label: 'WhatsApp Pulse', hint: `Send to XXXXXX${user.mobile.slice(-4)}` }
+        ];
+
+        if (nominees[0].count > 0) {
+            methods.push({ id: 'nominee', label: 'Nominee Bypass', hint: 'Verify via your registered nominees.' });
+        }
+
+        res.json({ userId: user.user_id, methods });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lookup protocol failure.' });
+    }
+};
+
+const recoverSendOTP = async (req, res) => {
+    const { userId, method } = req.body;
+    try {
+        const [rows] = await db.execute('SELECT email, mobile FROM users WHERE user_id = ?', [userId]);
+        if (rows.length === 0) return res.status(404).json({ message: 'User not found.' });
+
+        const user = rows[0];
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otp_hash = await hashData(otp);
+        const expires_at = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+        await db.execute(
+            'INSERT INTO otp_codes (user_id, otp_code, channel, expires_at) VALUES (?, ?, ?, ?)',
+            [userId, otp_hash, method === 'email' ? 'EMAIL' : 'WHATSAPP', expires_at]
+        );
+
+        console.log(`[RECOVERY OTP] Method: ${method}, User: ${user.email}, OTP: ${otp}`);
+
+        if (method === 'email') {
+            await sendEmailOTP(user.email, otp);
+        } else {
+// sendWhatsAppOTP is already required at the top from msg91Service
+            // For 'nominee' method, we'll send to the user's primary mobile for now as a fallback 
+            // OR find the first nominee. Let's try to find the first nominee for 'nominee' method.
+            let targetMobile = user.mobile;
+            if (method === 'nominee') {
+                const [n] = await db.execute('SELECT mobile FROM nominees WHERE user_id = ? LIMIT 1', [userId]);
+                if (n.length > 0) targetMobile = n[0].mobile;
+            }
+            await sendWhatsAppOTP(targetMobile, otp);
+        }
+
+        res.json({ message: `Verification pulse sent via ${method}.` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to transmit verification pulse.' });
+    }
+};
+
+const recoverVerify = async (req, res) => {
+    const { userId, phase, otp, answers } = req.body;
+    try {
+        if (phase === 'otp') {
+            const [rows] = await db.execute(
+                'SELECT * FROM otp_codes WHERE user_id = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1',
+                [userId]
+            );
+
+            if (rows.length === 0 || new Date(rows[0].expires_at) < new Date()) {
+                return res.status(400).json({ message: 'Pulse expired or invalid.' });
+            }
+
+            const isMatch = await compareData(otp, rows[0].otp_code);
+            if (!isMatch) return res.status(400).json({ message: 'Incorrect pulse sequence.' });
+
+            await db.execute('UPDATE otp_codes SET is_used = 1 WHERE otp_id = ?', [rows[0].otp_id]);
+
+            // Return security questions for Phase 2
+            const [questions] = await db.execute(`
+                SELECT q.question_id, q.question 
+                FROM security_questions q
+                JOIN user_security_answers usa ON q.question_id = usa.question_id
+                WHERE usa.user_id = ?
+            `, [userId]);
+
+            return res.json({ securityQuestions: questions });
+        }
+
+        if (phase === 'security') {
+            const [storedAnswers] = await db.execute('SELECT question_id, answer_hash FROM user_security_answers WHERE user_id = ?', [userId]);
+            if (storedAnswers.length === 0) return res.status(400).json({ message: 'No security protocols configured for this account.' });
+
+            let correctCount = 0;
+            for (const ans of answers) {
+                const stored = storedAnswers.find(s => s.question_id === ans.question_id);
+                if (stored && await compareData(ans.answer.toLowerCase(), stored.answer_hash)) {
+                    correctCount++;
+                }
+            }
+
+            if (correctCount >= storedAnswers.length) {
+                const resetToken = jwt.sign(
+                    { id: userId, purpose: 'FULL_RECOVERY' },
+                    process.env.JWT_SECRET,
+                    { expiresIn: '15m' }
+                );
+                
+                const [user] = await db.execute('SELECT email, mobile FROM users WHERE user_id = ?', [userId]);
+
+                return res.json({ 
+                    resetToken,
+                    currentEmail: user[0].email,
+                    currentMobile: user[0].mobile
+                });
+            } else {
+                return res.status(400).json({ message: 'Security protocol verification failed.' });
+            }
+        }
+
+        res.status(400).json({ message: 'Invalid recovery phase.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Verification protocol failure.' });
+    }
+};
+
+const recoverUpdateAccount = async (req, res) => {
+    const { resetToken, email, mobile, password } = req.body;
+    try {
+        const decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+        if (decoded.purpose !== 'FULL_RECOVERY') return res.status(401).json({ message: 'Invalid restoration token.' });
+
+        const updates = [];
+        const values = [];
+
+        if (email) { updates.push('email = ?'); values.push(email); }
+        if (mobile) { updates.push('mobile = ?'); values.push(mobile); }
+        if (password) {
+            const hash = await hashData(password);
+            updates.push('password_hash = ?');
+            values.push(hash);
+        }
+
+        if (updates.length === 0) return res.status(400).json({ message: 'No parameters provided for reconfiguration.' });
+
+        values.push(decoded.id);
+        await db.execute(`UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE user_id = ?`, values);
+
+        res.json({ message: 'Vault reconfigured successfully.' });
+    } catch (error) {
+        console.error(error);
+        res.status(401).json({ message: 'Invalid or expired restoration token.' });
+    }
+};
 
 const updateVaultPolicy = async (req, res) => {
     const { inactivity_trigger_period, reminder_interval } = req.body;

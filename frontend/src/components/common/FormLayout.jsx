@@ -8,7 +8,7 @@ export const FormLayoutWrapper = ({ title, description, children, onSave, onCanc
         transition={{ duration: 0.4 }}
         className="max-w-4xl mx-auto space-y-8 pb-20"
     >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between sticky top-[-24px] bg-[var(--bg-app)] z-30 py-6 mb-4 border-b border-[var(--border)]">
             <div>
                 <h1 className="text-3xl font-black text-white tracking-tight leading-tight">{title}</h1>
                 <p className="text-sm text-[var(--text-secondary)] mt-1 font-medium">{description}</p>
