@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from google import genai
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import os
 from dotenv import load_dotenv
 
@@ -21,6 +23,14 @@ client = genai.Client(api_key=API_KEY)
 app = Flask(__name__)
 CORS(app)
 
+# Initialize Limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+)
+
 # ==============================
 # HEALTH CHECK
 # ==============================
@@ -34,6 +44,7 @@ def home():
 # ==============================
 
 @app.route("/card-benefits", methods=["POST"])
+@limiter.limit("5 per minute") # Strict limit for AI generation
 def card_benefits():
     print("POST /card-benefits hit")
 
