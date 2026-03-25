@@ -21,9 +21,19 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState({ isVisible: false, message: '', type: 'success' });
+  const [countryCode, setCountryCode] = useState('+91');
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+
+  const countryCodes = [
+    { code: '+91', name: 'India' },
+    { code: '+1', name: 'USA' },
+    { code: '+44', name: 'UK' },
+    { code: '+971', name: 'UAE' },
+    { code: '+61', name: 'Australia' },
+  ];
 
   const getBaseUrl = () => {
-    const raw = process.env.REACT_APP_API_URL || 'http://16.170.248.196:5001/api';
+    const raw = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
     return raw.endsWith('/auth') ? raw : `${raw}/auth`;
   };
   const API_BASE = getBaseUrl();
@@ -39,8 +49,10 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
     setError('');
 
     try {
+      const isEmail = formData.email.includes('@');
+      const finalIdentifier = isEmail ? formData.email.trim() : `${countryCode}${formData.email.replace(/\D/g, '')}`;
       const response = await axios.post(`${API_BASE}/login`, {
-        identifier: formData.email,
+        identifier: finalIdentifier,
         password: formData.password
       });
 
@@ -84,7 +96,10 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API_BASE}/forgot-password`, { email: formData.email || recoveryEmail });
+      const inputVal = formData.email || recoveryEmail;
+      const isEmail = inputVal.includes('@');
+      const finalIdentifier = isEmail ? inputVal.trim() : `${countryCode}${inputVal.replace(/\D/g, '')}`;
+      const res = await axios.post(`${API_BASE}/forgot-password`, { identifier: finalIdentifier });
       setLoginDetails(res.data);
       setRecoveryStep('otp');
     } catch (err) {
@@ -145,10 +160,10 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
                showOtp ? 'Security Verification' : 'Sign In'}
             </h2>
             <p className="text-[var(--text-secondary)] text-sm font-medium">
-              {recoveryStep === 'lookup' ? 'Enter your email to search the ledger.' :
+              {recoveryStep === 'lookup' ? 'Enter your registered mobile to search the ledger.' :
                recoveryStep === 'otp' ? `We've sent a pulse to XXXXXX${loginDetails?.mobileSnippet}` :
                recoveryStep === 'reset' ? 'Define your new master credentials.' :
-               showOtp ? `We've sent an OTP to your WhatsApp ending in ${loginDetails?.mobileSnippet}` :
+               showOtp ? `We've sent an OTP to ${loginDetails?.destinationSnippet || 'your device'}` :
                'Enter your vault credentials to proceed.'}
             </p>
           </div>
@@ -156,11 +171,47 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
           {recoveryStep === 'lookup' && (
             <motion.form initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleForgotLookup} className="space-y-5">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email Address</label>
-                <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
-                  <input type="email" required placeholder="name@company.com" className="input-field pl-12 py-3"
-                    value={formData.email || recoveryEmail} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setRecoveryEmail(e.target.value); }} />
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Mobile Number</label>
+                <div className="flex gap-2 relative">
+                  <div className="relative w-[85px]">
+                    <button
+                      type="button"
+                      onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                      className="w-full px-3 py-[11px] bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-1 transition-all hover:bg-[var(--surface)]"
+                    >
+                      {countryCode}
+                      <motion.div animate={{ rotate: showCountryDropdown ? 180 : 0 }}>
+                        <ArrowRight size={14} className="rotate-90" />
+                      </motion.div>
+                    </button>
+                    <AnimatePresence>
+                      {showCountryDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="absolute top-full left-0 mt-2 w-40 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl z-50 overflow-hidden p-1.5"
+                        >
+                          {countryCodes.map(c => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => { setCountryCode(c.code); setShowCountryDropdown(false); }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex justify-between items-center ${countryCode === c.code ? 'bg-[var(--primary)] text-white' : 'text-[var(--text-primary)] hover:bg-[var(--surface-glass)]'}`}
+                            >
+                              <span>{c.name}</span>
+                              <span className="opacity-60">{c.code}</span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <div className="relative flex-1 group">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                    <input type="text" required placeholder="98765 43210" className="input-field pl-12 py-3"
+                      value={formData.email || recoveryEmail} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setRecoveryEmail(e.target.value); }} />
+                  </div>
                 </div>
               </div>
               {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl flex items-center space-x-3 text-xs font-bold"><AlertCircle size={18} /><span>{error}</span></div>}
@@ -217,17 +268,53 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
               className="space-y-5"
             >
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email Address</label>
-                <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@company.com"
-                    className="input-field pl-12 py-3"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email or Mobile</label>
+                <div className="flex gap-2 relative">
+                  <div className="relative w-[85px]">
+                    <button
+                      type="button"
+                      onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                      className="w-full px-3 py-[11px] bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-1 transition-all hover:bg-[var(--surface)]"
+                    >
+                      {countryCode}
+                      <motion.div animate={{ rotate: showCountryDropdown ? 180 : 0 }}>
+                        <ArrowRight size={14} className="rotate-90" />
+                      </motion.div>
+                    </button>
+                    <AnimatePresence>
+                      {showCountryDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="absolute top-full left-0 mt-2 w-40 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl z-50 overflow-hidden p-1.5"
+                        >
+                          {countryCodes.map(c => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => { setCountryCode(c.code); setShowCountryDropdown(false); }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex justify-between items-center ${countryCode === c.code ? 'bg-[var(--primary)] text-white' : 'text-[var(--text-primary)] hover:bg-[var(--surface-glass)]'}`}
+                            >
+                              <span>{c.name}</span>
+                              <span className="opacity-60">{c.code}</span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <div className="relative flex-1 group">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                    <input
+                      type="text"
+                      required
+                      placeholder="name@email.com or 98765 43210"
+                      className="input-field pl-12 py-3"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -408,10 +495,10 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
                showOtp ? 'Security Verification' : 'Sign In'}
             </h2>
             <p className="text-[var(--text-secondary)] text-lg font-medium">
-              {recoveryStep === 'lookup' ? 'Enter your email to search the ledger.' :
+              {recoveryStep === 'lookup' ? 'Enter your registered mobile to search the ledger.' :
                recoveryStep === 'otp' ? `We've sent a pulse to XXXXXX${loginDetails?.mobileSnippet}` :
                recoveryStep === 'reset' ? 'Define your new master credentials.' :
-               showOtp ? `We've sent an OTP to your WhatsApp ending in ${loginDetails?.mobileSnippet}` :
+               showOtp ? `We've sent an OTP to ${loginDetails?.destinationSnippet || 'your device'}` :
                'Enter your vault credentials to proceed.'}
             </p>
           </div>
@@ -419,11 +506,47 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
           {recoveryStep === 'lookup' && (
             <motion.form initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleForgotLookup} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email Address</label>
-                <div className="relative group">
-                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
-                  <input type="email" required placeholder="name@company.com" className="input-field pl-14"
-                    value={formData.email || recoveryEmail} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setRecoveryEmail(e.target.value); }} />
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Mobile Number</label>
+                <div className="flex gap-2 relative">
+                  <div className="relative w-[90px]">
+                    <button
+                      type="button"
+                      onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                      className="w-full px-4 py-[13px] bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:bg-[var(--surface)]"
+                    >
+                      {countryCode}
+                      <motion.div animate={{ rotate: showCountryDropdown ? 180 : 0 }}>
+                        <ArrowRight size={16} className="rotate-90" />
+                      </motion.div>
+                    </button>
+                    <AnimatePresence>
+                      {showCountryDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="absolute top-full left-0 mt-2 w-48 bg-[var(--surface)] border border-[var(--border)] rounded-[2rem] shadow-2xl z-50 overflow-hidden p-2"
+                        >
+                          {countryCodes.map(c => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => { setCountryCode(c.code); setShowCountryDropdown(false); }}
+                              className={`w-full text-left px-4 py-3 rounded-2xl text-sm font-bold transition-all flex justify-between items-center ${countryCode === c.code ? 'bg-[var(--primary)] text-white' : 'text-[var(--text-primary)] hover:bg-[var(--surface-glass)]'}`}
+                            >
+                              <span>{c.name}</span>
+                              <span className="opacity-60">{c.code}</span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <div className="relative flex-1 group">
+                    <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
+                    <input type="text" required placeholder="98765 43210" className="input-field pl-14"
+                      value={formData.email || recoveryEmail} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setRecoveryEmail(e.target.value); }} />
+                  </div>
                 </div>
               </div>
               {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-center space-x-3 my-4"><AlertCircle size={20} /><span>{error}</span></div>}
@@ -480,17 +603,53 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
               className="space-y-6"
             >
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email Address</label>
-                <div className="relative group">
-                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@company.com"
-                    className="input-field pl-14"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email or Mobile</label>
+                <div className="flex gap-2 relative">
+                  <div className="relative w-[90px]">
+                    <button
+                      type="button"
+                      onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                      className="w-full px-4 py-[13px] bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:bg-[var(--surface)]"
+                    >
+                      {countryCode}
+                      <motion.div animate={{ rotate: showCountryDropdown ? 180 : 0 }}>
+                        <ArrowRight size={16} className="rotate-90" />
+                      </motion.div>
+                    </button>
+                    <AnimatePresence>
+                      {showCountryDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="absolute top-full left-0 mt-2 w-48 bg-[var(--surface)] border border-[var(--border)] rounded-[2rem] shadow-2xl z-50 overflow-hidden p-2"
+                        >
+                          {countryCodes.map(c => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => { setCountryCode(c.code); setShowCountryDropdown(false); }}
+                              className={`w-full text-left px-4 py-3 rounded-2xl text-sm font-bold transition-all flex justify-between items-center ${countryCode === c.code ? 'bg-[var(--primary)] text-white' : 'text-[var(--text-primary)] hover:bg-[var(--surface-glass)]'}`}
+                            >
+                              <span>{c.name}</span>
+                              <span className="opacity-60">{c.code}</span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <div className="relative flex-1 group">
+                    <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
+                    <input
+                      type="text"
+                      required
+                      placeholder="name@email.com or 98765 43210"
+                      className="input-field pl-14"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
 

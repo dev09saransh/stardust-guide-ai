@@ -69,14 +69,15 @@ const login = async (req, res) => {
             });
         }
 
-        // Generate 6-digit OTP for regular users
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otp_hash = await hashData(otp);
         const expires_at = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
+        const channel = identifier.includes('@') ? 'EMAIL' : 'WHATSAPP';
+
         await db.execute(
             'INSERT INTO otp_codes (user_id, otp_code, channel, expires_at) VALUES (?, ?, ?, ?)',
-            [user.user_id, otp_hash, 'WHATSAPP', expires_at]
+            [user.user_id, otp_hash, channel, expires_at]
         );
 
         console.log(`🔑 [DEVELOPMENT]: OTP for ${user.email} (${user.mobile}): ${otp}`);
@@ -96,22 +97,25 @@ const login = async (req, res) => {
             // We don't block login just because audit logging failed
         }
 
-        // STRICTLY REAL TWILIO SENDING
         try {
-            await sendWhatsAppOTP(user.mobile, otp);
-        } catch (twilioErr) {
-            console.error('❌ [CRITICAL] Twilio failed to send OTP:', twilioErr.message);
+            if (channel === 'EMAIL') {
+                await sendEmailOTP(user.email, otp);
+            } else {
+                await sendWhatsAppOTP(user.mobile, otp);
+            }
+        } catch (msg91Err) {
+            console.error('❌ [CRITICAL] Failed to send OTP:', msg91Err.message);
             return res.status(503).json({
-                message: 'Failed to send WhatsApp OTP. Please ensure Twilio is configured correctly.',
-                error: twilioErr.message
+                message: 'Failed to send OTP. Please check service configuration.',
+                error: msg91Err.message
             });
         }
 
         res.json({
-            message: 'Step 1 complete: Password verified. OTP required.',
+            message: `Step 1 complete: Password verified. OTP required via ${channel}.`,
             status: 'OTP_REQUIRED',
             userId: user.user_id,
-            mobileSnippet: `XXXXXX${user.mobile.slice(-4)}`
+            destinationSnippet: channel === 'EMAIL' ? user.email : `XXXXXX${user.mobile.slice(-4)}`
         });
 
     } catch (error) {
@@ -134,112 +138,62 @@ const register = async (req, res) => {
     const actualFullName = fullName || full_name;
     const actualSecurityAnswers = securityAnswers || security_answers;
 
-    console.log(`🚀 [REGISTRATION]: Starting for ${email}, Mobile: ${mobile}`);
+    console.log(`🚀 [REGISTRATION]: Starting for ${email || 'No Email'}, Mobile: ${mobile}`);
 
-    if (!actualFullName || !email || !mobile || !password || !actualSecurityAnswers) {
+    if (!actualFullName || !mobile || !password || !actualSecurityAnswers) {
         return res.status(400).json({ message: 'Missing required registration fields' });
     }
 
-    if (!Array.isArray(actualSecurityAnswers)) {
-        return res.status(400).json({ message: 'Security answers must be provided as an array' });
-    }
-
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
     try {
-        // Check if user already exists
-        const [existing] = await connection.execute(
-            'SELECT user_id, is_verified FROM users WHERE email = ? OR mobile = ?',
-            [email, mobile]
+        // Check if user already exists in main table
+        const [existing] = await db.execute(
+            'SELECT user_id FROM users WHERE mobile = ?' + (email ? ' OR email = ?' : ''),
+            email ? [mobile, email] : [mobile]
         );
 
         if (existing.length > 0) {
-            if (existing[0].is_verified) {
-                await connection.rollback();
-                return res.status(400).json({ message: 'User with this email or mobile already exists' });
-            } else {
-                // If the existing user is NOT verified, we allow the registration to "reset" 
-                // This prevents unverified ghost accounts from blocking new attempts.
-                console.log(`♻️ [REGISTRATION]: Purging unverified ghost record for ${email}`);
-                await connection.execute('DELETE FROM users WHERE user_id = ?', [existing[0].user_id]);
-                // Deletion will CASCADE to child records (security answers, old OTPs)
-            }
+            return res.status(400).json({ message: 'User with this mobile' + (email ? ' or email' : '') + ' already exists' });
         }
 
         const password_hash = await hashData(password);
 
-        // Generate Security Code (Shorter, Plain Text for Dashboard Viewing)
-        const rawSecurityCode = await generateSecurityCode();
-        // NOT hashing this so user can see it in dashboard
-
-        // Create user
-        const [userResult] = await connection.execute(
-            'INSERT INTO users (full_name, email, mobile, password_hash, security_code, is_verified) VALUES (?, ?, ?, ?, ?, ?)',
-            [actualFullName, email, mobile, password_hash, rawSecurityCode, 0] // Set is_verified = 0, OTP required
-        );
-
-        const userId = userResult.insertId;
-
-        // --- NEW: LINK NOMINEE RECORDS TO NEW USER ---
-        await connection.execute(
-            'UPDATE nominees SET linked_user_id = ? WHERE email = ? OR mobile = ?',
-            [userId, email, mobile]
-        );
-
-        // Save security answers
-        for (const ans of actualSecurityAnswers) {
-            if (!ans.question_id || !ans.answer) continue;
-            const answer_hash = await hashData(ans.answer.toLowerCase());
-            await connection.execute(
-                'INSERT INTO user_security_answers (user_id, question_id, answer_hash) VALUES (?, ?, ?)',
-                [userId, ans.question_id, answer_hash]
-            );
-        }
-
-        // Generate Registration OTP (Optional now, but keeping for reference)
+        // Generate Registration OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otp_hash = await hashData(otp);
-        const expires_at = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+        const expires_at = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
-        await connection.execute(
-            'INSERT INTO otp_codes (user_id, otp_code, channel, expires_at) VALUES (?, ?, ?, ?)',
-            [userId, otp_hash, 'WHATSAPP', expires_at]
+        // Clean up any existing pending registration for this identifier
+        await db.execute('DELETE FROM pending_registrations WHERE mobile = ?' + (email ? ' OR email = ?' : ''), email ? [mobile, email] : [mobile]);
+
+        // Store in PENDING table (No account created in 'users' yet)
+        await db.execute(
+            'INSERT INTO pending_registrations (full_name, email, mobile, password_hash, security_answers_json, otp_code_hash, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [actualFullName, email || null, mobile, password_hash, JSON.stringify(actualSecurityAnswers), otp_hash, expires_at]
         );
 
-        console.log(`🔑 [DEVELOPMENT]: Registration OTP for ${email} (${mobile}): ${otp}`);
+        console.log(`🔑 [DEVELOPMENT]: Registration OTP for ${mobile} (${email}): ${otp}`);
 
-        await connection.commit();
-
+        const channel = email ? 'EMAIL' : 'WHATSAPP';
         try {
-            await sendWhatsAppOTP(mobile, otp);
+            if (channel === 'EMAIL') {
+                await sendEmailOTP(email, otp);
+            } else {
+                await sendWhatsAppOTP(mobile, otp);
+            }
         } catch (twilioErr) {
-            console.error('⚠️ Twilio failed during registration:', twilioErr.message);
+            console.error('⚠️ Failed during registration OTP send:', twilioErr.message);
         }
 
-        // Generate Token immediately
-        const [userRows] = await connection.execute('SELECT * FROM users WHERE user_id = ?', [userId]);
-        const newUser = userRows[0];
-        const token = jwt.sign(
-            { id: newUser.user_id, role: newUser.role, email: newUser.email, mobile: newUser.mobile },
-            process.env.JWT_SECRET,
-            { expiresIn: '4h' }
-        );
-
-        res.status(201).json({
-            message: 'User registered successfully. OTP sent.',
+        res.status(200).json({
+            message: `OTP sent to ${channel}. Please verify to complete registration.`,
             status: 'REGISTRATION_OTP_REQUIRED',
-            userId: userId,
-            securityCode: rawSecurityCode,
-            mobileSnippet: `XXXXXX${mobile.slice(-4)}`
+            email,
+            destinationSnippet: channel === 'EMAIL' ? email : `XXXXXX${mobile.slice(-4)}`
         });
 
     } catch (error) {
-        await connection.rollback();
-        console.error(error);
-        res.status(500).json({ message: 'Server error during registration' });
-    } finally {
-        connection.release();
+        console.error('❌ [AUTH] Registration error:', error);
+        res.status(500).json({ message: 'Server error during registration', error: error.message });
     }
 };
 
@@ -248,66 +202,176 @@ const getSecurityQuestions = async (req, res) => {
         const [rows] = await db.execute('SELECT * FROM security_questions');
         res.json(rows);
     } catch (error) {
-        res.status(500).json({ message: 'Error fetching questions' });
+        console.error('❌ [AUTH] Error fetching security questions:', error.message);
+        res.status(500).json({ message: 'Error fetching questions', diagnostic: error.message });
     }
 };
 
 const verifyOTP = async (req, res) => {
-    const { userId, otp } = req.body;
+    const { userId, otp, email, mobile } = req.body; // email or mobile used for pending registration lookup
 
     try {
-        const [rows] = await db.execute(
-            'SELECT * FROM otp_codes WHERE user_id = ? AND channel = "WHATSAPP" AND is_used = 0 ORDER BY created_at DESC LIMIT 1',
-            [userId]
-        );
+        // 1. Check if this is a Login Verification (User already exists in 'users' table)
+        if (userId) {
+            const [rows] = await db.execute(
+                'SELECT * FROM otp_codes WHERE user_id = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1',
+                [userId]
+            );
 
-        if (rows.length === 0) {
-            return res.status(400).json({ message: 'No active OTP found' });
-        }
+            if (rows.length > 0) {
+                if (new Date(rows[0].expires_at) < new Date()) {
+                    return res.status(400).json({ message: 'OTP expired' });
+                }
 
-        if (new Date(rows[0].expires_at) < new Date()) {
-            return res.status(400).json({ message: 'OTP expired' });
-        }
+                const isMatch = await compareData(otp, rows[0].otp_code);
+                if (!isMatch) {
+                    return res.status(400).json({ message: 'Invalid OTP' });
+                }
 
-        const isMatch = await compareData(otp, rows[0].otp_code);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid OTP' });
-        }
+                // Mark OTP as used
+                await db.execute('UPDATE otp_codes SET is_used = 1 WHERE otp_id = ?', [rows[0].otp_id]);
 
-        // Mark OTP as used
-        await db.execute('UPDATE otp_codes SET is_used = 1 WHERE otp_id = ?', [rows[0].otp_id]);
+                // Mark User as Verified
+                await db.execute('UPDATE users SET is_verified = 1 WHERE user_id = ?', [userId]);
 
-        // Mark User as Verified
-        await db.execute('UPDATE users SET is_verified = 1 WHERE user_id = ?', [userId]);
+                // Get user for token
+                const [userRows] = await db.execute('SELECT * FROM users WHERE user_id = ?', [userId]);
+                const user = userRows[0];
 
-        // Get user for token
-        const [userRows] = await db.execute('SELECT * FROM users WHERE user_id = ?', [userId]);
-        const user = userRows[0];
+                const token = jwt.sign(
+                    { id: user.user_id, role: user.role, email: user.email, mobile: user.mobile },
+                    process.env.JWT_SECRET,
+                    { expiresIn: '4h' }
+                );
 
-        const token = jwt.sign(
-            { id: user.user_id, role: user.role, email: user.email, mobile: user.mobile },
-            process.env.JWT_SECRET,
-            { expiresIn: '4h' }
-        );
-
-        res.json({
-            message: 'Verification successful. Accessing vault...',
-            token,
-            securityCode: user.security_code,
-            user: {
-                id: user.user_id,
-                full_name: user.full_name,
-                email: user.email,
-                mobile: user.mobile,
-                role: user.role,
-                is_verified: 1,
-                has_completed_onboarding: !!user.has_completed_onboarding
+                return res.json({
+                    message: 'Verification successful. Accessing vault...',
+                    token,
+                    securityCode: user.security_code,
+                    user: {
+                        id: user.user_id,
+                        full_name: user.full_name,
+                        email: user.email,
+                        mobile: user.mobile,
+                        role: user.role,
+                        is_verified: 1,
+                        has_completed_onboarding: !!user.has_completed_onboarding
+                    }
+                });
             }
-        });
+        }
+
+        // 2. Check if this is a NEW Registration Verification (User in 'pending_registrations' table)
+        const identifier = email || mobile;
+        if (identifier) {
+            const [pending] = await db.execute(
+                'SELECT * FROM pending_registrations WHERE email = ? OR mobile = ? ORDER BY created_at DESC LIMIT 1',
+                [identifier, identifier]
+            );
+
+            if (pending.length === 0) {
+                return res.status(400).json({ message: 'No registration data found. Please register again.' });
+            }
+
+            if (new Date(pending[0].expires_at) < new Date()) {
+                return res.status(400).json({ message: 'Registration OTP expired' });
+            }
+
+            const isMatch = await compareData(otp, pending[0].otp_code_hash);
+            if (!isMatch) {
+                return res.status(400).json({ message: 'Invalid Registration OTP' });
+            }
+
+            // ATOMIC USER CREATION START
+            const connection = await db.getConnection();
+            await connection.beginTransaction();
+
+            try {
+                const rawSecurityCode = await generateSecurityCode();
+                const p = pending[0];
+
+                // Create user
+                const [userResult] = await connection.execute(
+                    'INSERT INTO users (full_name, email, mobile, password_hash, security_code, is_verified, has_completed_onboarding) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [p.full_name, p.email, p.mobile, p.password_hash, rawSecurityCode, 1, 0] // Verified=1, Onboarding=0
+                );
+
+                const newUserId = userResult.insertId;
+
+                // Save security answers
+                let securityAnswers = p.security_answers_json;
+                if (typeof securityAnswers === 'string') {
+                    try {
+                        securityAnswers = JSON.parse(securityAnswers);
+                    } catch (e) {
+                        securityAnswers = [];
+                    }
+                }
+                
+                if (Array.isArray(securityAnswers)) {
+                    for (const ans of securityAnswers) {
+                        if (!ans.question_id || !ans.answer) continue;
+                        const answer_hash = await hashData(ans.answer.toLowerCase());
+                        await connection.execute(
+                            'INSERT INTO user_security_answers (user_id, question_id, answer_hash) VALUES (?, ?, ?)',
+                            [newUserId, ans.question_id, answer_hash]
+                        );
+                    }
+                }
+
+                // Link nominee records
+                await connection.execute(
+                    'UPDATE nominees SET linked_user_id = ? WHERE email = ? OR mobile = ?',
+                    [newUserId, p.email, p.mobile]
+                );
+
+                // Cleanup pending registration
+                await connection.execute('DELETE FROM pending_registrations WHERE id = ?', [p.id]);
+
+                await connection.commit();
+
+                // Get user for token
+                const [userRows] = await connection.execute('SELECT * FROM users WHERE user_id = ?', [newUserId]);
+                const user = userRows[0];
+
+                const token = jwt.sign(
+                    { id: user.user_id, role: user.role, email: user.email, mobile: user.mobile },
+                    process.env.JWT_SECRET,
+                    { expiresIn: '4h' }
+                );
+
+                return res.json({
+                    message: 'Registration complete! Welcome to Stardust.',
+                    token,
+                    securityCode: user.security_code,
+                    user: {
+                        id: user.user_id,
+                        full_name: user.full_name,
+                        email: user.email,
+                        mobile: user.mobile,
+                        role: user.role,
+                        is_verified: 1,
+                        has_completed_onboarding: 0
+                    }
+                });
+
+            } catch (innerError) {
+                await connection.rollback();
+                throw innerError;
+            } finally {
+                connection.release();
+            }
+        }
+
+        return res.status(400).json({ message: 'Invalid verification request' });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error during OTP verification' });
+        console.error('❌ [AUTH] OTP verification error:', error);
+        res.status(500).json({ 
+            message: 'Server error during OTP verification', 
+            diagnostic: error.message,
+            stack: process.env.NODE_ENV === 'production' ? null : error.stack 
+        });
     }
 };
 
@@ -369,7 +433,7 @@ const verifyRecoveryAnswers = async (req, res) => {
 };
 
 const resetPassword = async (req, res) => {
-    const { email, newPassword, recoveryToken } = req.body;
+    const { mobile, newPassword, recoveryToken } = req.body;
     try {
         const decoded = jwt.verify(recoveryToken, process.env.JWT_SECRET);
         if (decoded.purpose !== 'RECOVERY') return res.status(401).json({ message: 'Invalid token' });
@@ -385,14 +449,18 @@ const resetPassword = async (req, res) => {
 };
 
 const forgotPassword = async (req, res) => {
-    const { email } = req.body;
+    const { identifier } = req.body;
     try {
-        const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
+        const isEmail = identifier.includes('@');
+        const [rows] = await db.execute(
+            isEmail ? 'SELECT * FROM users WHERE email = ?' : 'SELECT * FROM users WHERE mobile = ?', 
+            [identifier]
+        );
         if (rows.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
         const user = rows[0];
-        console.log(`[FORGOT PASSWORD]: Found user ${user.email}, sending OTP to ${user.mobile}`);
+        console.log(`[FORGOT PASSWORD]: Found user (Mobile: ${user.mobile}, Email: ${user.email})`);
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otp_hash = await hashData(otp);
@@ -404,19 +472,24 @@ const forgotPassword = async (req, res) => {
         );
 
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log(`FORGOT PASSWORD OTP for ${user.email}: ${otp}`);
+        console.log(`FORGOT PASSWORD OTP for ${user.mobile}: ${otp}`);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
+        const channel = isEmail ? 'EMAIL' : 'WHATSAPP';
         try {
-            await sendWhatsAppOTP(user.mobile, otp);
+            if (channel === 'EMAIL') {
+                await sendEmailOTP(user.email, otp);
+            } else {
+                await sendWhatsAppOTP(user.mobile, otp);
+            }
             res.json({
-                message: 'Password reset OTP sent to WhatsApp',
+                message: `Password reset OTP sent to ${channel}`,
                 userId: user.user_id,
-                mobileSnippet: `XXXXXX${user.mobile.slice(-4)}`
+                destinationSnippet: channel === 'EMAIL' ? user.email : `XXXXXX${user.mobile.slice(-4)}`
             });
         } catch (twilioErr) {
-            console.error('Twilio failed for forgot password:', twilioErr.message);
-            res.status(503).json({ message: 'Failed to send WhatsApp OTP. Please try again.' });
+            console.error('Failed for forgot password:', twilioErr.message);
+            res.status(503).json({ message: 'Failed to send OTP. Please try again.' });
         }
     } catch (error) {
         console.error(error);
@@ -503,37 +576,40 @@ const getOnboardingStatus = async (req, res) => {
 // --- NOMINEE & PROFILE ---
 
 const saveNominee = async (req, res) => {
-    const { full_name, email, mobile, country_code, relationship } = req.body;
+    const { full_name, mobile, country_code, relationship } = req.body;
     const userId = req.user.id;
 
-    if (!full_name || !email || !mobile || !relationship) {
-        return res.status(400).json({ message: 'All nominee fields are required' });
+    if (!full_name || !mobile || !relationship) {
+        return res.status(400).json({ message: 'Nominee Name, Phone, and Relationship are required' });
     }
 
     try {
         const [userRows] = await db.execute('SELECT nominee_limit FROM users WHERE user_id = ?', [userId]);
         const limit = userRows[0]?.nominee_limit || 2;
 
-        const [nominees] = await db.execute('SELECT nominee_id, email, mobile FROM nominees WHERE user_id = ?', [userId]);
+        const [nominees] = await db.execute('SELECT nominee_id, mobile FROM nominees WHERE user_id = ?', [userId]);
         const fullMobile = (country_code || '+91') + mobile;
-        const existingNominee = nominees.find(n => n.email === email || n.mobile === fullMobile);
+        const existingNominee = nominees.find(n => n.mobile === fullMobile);
 
         // Check if the nominee already has a user account
-        const [existingUserRows] = await db.execute('SELECT user_id FROM users WHERE email = ? OR mobile = ?', [email, fullMobile]);
+        const [existingUserRows] = await db.execute(
+            'SELECT user_id FROM users WHERE mobile = ?',
+            [fullMobile]
+        );
         const linkedUserId = existingUserRows[0]?.user_id || null;
 
         if (existingNominee) {
             await db.execute(
-                'UPDATE nominees SET full_name = ?, email = ?, mobile = ?, relationship = ?, linked_user_id = ?, updated_at = NOW() WHERE nominee_id = ?',
-                [full_name, email, fullMobile, relationship, linkedUserId, existingNominee.nominee_id]
+                'UPDATE nominees SET full_name = ?, mobile = ?, relationship = ?, linked_user_id = ?, updated_at = NOW() WHERE nominee_id = ?',
+                [full_name, fullMobile, relationship, linkedUserId, existingNominee.nominee_id]
             );
         } else {
             if (nominees.length >= limit) {
                 return res.status(400).json({ message: `Maximum of ${limit} nominees allowed for your vault policy.` });
             }
             await db.execute(
-                'INSERT INTO nominees (user_id, full_name, email, mobile, relationship, linked_user_id) VALUES (?, ?, ?, ?, ?, ?)',
-                [userId, full_name, email, fullMobile, relationship, linkedUserId]
+                'INSERT INTO nominees (user_id, full_name, mobile, relationship, linked_user_id) VALUES (?, ?, ?, ?, ?)',
+                [userId, full_name, fullMobile, relationship, linkedUserId]
             );
         }
 
@@ -541,6 +617,55 @@ const saveNominee = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Failed to save nominee' });
+    }
+};
+
+const sendUserEmailOTP = async (req, res) => {
+    const userId = req.user.id;
+    try {
+        const [user] = await db.execute('SELECT email FROM users WHERE user_id = ?', [userId]);
+        if (!user[0]?.email) return res.status(400).json({ message: 'No email found for this account' });
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otp_hash = await hashData(otp);
+        const expires_at = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+        await db.execute(
+            'INSERT INTO otp_codes (user_id, otp_code, channel, expires_at) VALUES (?, ?, ?, ?)',
+            [userId, otp_hash, 'EMAIL', expires_at]
+        );
+
+        await sendEmailOTP(user[0].email, otp);
+        res.json({ message: `Verification OTP sent to ${user[0].email}` });
+    } catch (error) {
+        console.error('❌ [AUTH] User Email OTP Error:', error);
+        res.status(500).json({ message: 'Failed to send email OTP' });
+    }
+};
+
+const verifyUserEmailOTP = async (req, res) => {
+    const { otp } = req.body;
+    const userId = req.user.id;
+    try {
+        const [rows] = await db.execute(
+            'SELECT * FROM otp_codes WHERE user_id = ? AND channel = "EMAIL" AND is_used = 0 ORDER BY created_at DESC LIMIT 1',
+            [userId]
+        );
+        
+        if (rows.length === 0 || new Date(rows[0].expires_at) < new Date()) {
+            return res.status(400).json({ message: 'Invalid or expired OTP' });
+        }
+
+        const isMatch = await compareData(otp, rows[0].otp_code);
+        if (!isMatch) return res.status(400).json({ message: 'Invalid OTP' });
+
+        await db.execute('UPDATE otp_codes SET is_used = 1 WHERE otp_id = ?', [rows[0].otp_id]);
+        await db.execute('UPDATE users SET email_verified = 1 WHERE user_id = ?', [userId]);
+
+        res.json({ message: 'Your email has been verified successfully', email_verified: true });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to verify email OTP' });
     }
 };
 
@@ -559,28 +684,51 @@ const sendNomineeEmailOTP = async (req, res) => {
     const { email } = req.body;
     const userId = req.user.id;
     if (!email) return res.status(400).json({ message: 'Email is required' });
+
     try {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otp_hash = await hashData(otp);
         const expires_at = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
-        await db.execute('INSERT INTO otp_codes (user_id, otp_code, channel, expires_at) VALUES (?, ?, ?, ?)', [userId, otp_hash, 'EMAIL', expires_at]);
+
+        await db.execute(
+            'INSERT INTO otp_codes (user_id, otp_code, channel, expires_at) VALUES (?, ?, ?, ?)',
+            [userId, otp_hash, 'EMAIL', expires_at]
+        );
+
         await sendEmailOTP(email, otp);
-        res.json({ message: `OTP sent to ${email}`, emailSnippet: email.replace(/(.{2})(.*)(@.*)/, '$1***$3') });
+        res.json({ message: `Verification OTP sent to ${email}` });
     } catch (error) {
-        console.error('Email OTP Error:', error);
+        console.error('❌ [AUTH] Nominee Email OTP Error:', error);
         res.status(500).json({ message: 'Failed to send email OTP' });
     }
 };
 
 const verifyNomineeEmailOTP = async (req, res) => {
-    const { otp } = req.body;
+    const { otp, email } = req.body;
     const userId = req.user.id;
     try {
-        const [rows] = await db.execute('SELECT * FROM otp_codes WHERE user_id = ? AND channel = "EMAIL" AND is_used = 0 ORDER BY created_at DESC LIMIT 1', [userId]);
-        if (rows.length === 0 || new Date(rows[0].expires_at) < new Date()) return res.status(400).json({ message: 'Invalid or expired OTP' });
+        const [rows] = await db.execute(
+            'SELECT * FROM otp_codes WHERE user_id = ? AND channel = "EMAIL" AND is_used = 0 ORDER BY created_at DESC LIMIT 1',
+            [userId]
+        );
+        
+        if (rows.length === 0 || new Date(rows[0].expires_at) < new Date()) {
+            return res.status(400).json({ message: 'Invalid or expired OTP' });
+        }
+
         const isMatch = await compareData(otp, rows[0].otp_code);
         if (!isMatch) return res.status(400).json({ message: 'Invalid OTP' });
+
         await db.execute('UPDATE otp_codes SET is_used = 1 WHERE otp_id = ?', [rows[0].otp_id]);
+        
+        // Mark nominee email as verified
+        if (email) {
+            await db.execute(
+                'UPDATE nominees SET email_verified = 1 WHERE user_id = ? AND email = ?',
+                [userId, email]
+            );
+        }
+
         res.json({ message: 'Email verified successfully', email_verified: true });
     } catch (error) {
         console.error(error);
@@ -711,7 +859,7 @@ const getUserProfile = async (req, res) => {
             if (access.length > 0) userId = vaultContext;
         }
 
-        const [rows] = await db.execute('SELECT user_id, full_name, email, mobile, address, gender, dob, role, is_verified, has_completed_onboarding, security_code, last_login_at, inactivity_trigger_period, reminder_interval, nominee_limit, created_at FROM users WHERE user_id = ?', [userId]);
+        const [rows] = await db.execute('SELECT user_id, full_name, email, mobile, address, gender, dob, role, is_verified, email_verified, has_completed_onboarding, security_code, last_login_at, inactivity_trigger_period, reminder_interval, nominee_limit, created_at FROM users WHERE user_id = ?', [userId]);
         if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
 
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -732,7 +880,11 @@ const updateUserProfile = async (req, res) => {
         const values = [];
 
         if (full_name !== undefined) { updates.push('full_name = ?'); values.push(full_name); }
-        if (email !== undefined) { updates.push('email = ?'); values.push(email); }
+        if (email !== undefined) { 
+            updates.push('email = ?'); 
+            updates.push('email_verified = 0'); // Reset verification on email change
+            values.push(email); 
+        }
         if (mobile !== undefined) { updates.push('mobile = ?'); values.push(mobile); }
         if (address !== undefined) { updates.push('address = ?'); values.push(address || null); }
         if (gender !== undefined) { updates.push('gender = ?'); values.push(gender || null); }
@@ -753,7 +905,7 @@ const updateUserProfile = async (req, res) => {
         const [currentUser] = await db.execute('SELECT full_name, email, mobile, address, gender, dob FROM users WHERE user_id = ?', [userId]);
 
         const u = currentUser[0];
-        const personalFields = (u.full_name && u.email && u.mobile && u.address && u.gender && u.dob);
+        const personalFields = (u.full_name && u.mobile && u.address && u.gender && u.dob);
 
         if (personalFields && nominees[0].count > 0 && security[0].count > 0) {
             await db.execute('UPDATE users SET has_completed_onboarding = 1 WHERE user_id = ?', [userId]);
@@ -790,7 +942,7 @@ const getProfileCompletion = async (req, res) => {
 
         const fields = {
             full_name: !!user.full_name,
-            email: !!user.email,
+            email: !!user.email && !!user.email_verified, // Enforce email verification
             mobile: !!user.mobile,
             address: !!user.address,
             gender: !!user.gender,
@@ -1033,5 +1185,7 @@ module.exports = {
     recoverSendOTP,
     recoverVerify,
     recoverUpdateAccount,
-    updateVaultPolicy
+    updateVaultPolicy,
+    sendUserEmailOTP,
+    verifyUserEmailOTP
 };
