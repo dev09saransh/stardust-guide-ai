@@ -3,6 +3,8 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { X, UserPlus, Shield, CheckCircle, AlertCircle, ChevronRight, Lock } from 'lucide-react';
 
+const API = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
+
 const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
     const [opportunities, setOpportunities] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -22,7 +24,7 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
         try {
             setLoading(true);
             const token = localStorage.getItem('stardust_token');
-            const res = await axios.get('http://16.170.248.196:5001/api/auth/nominee-opportunities', {
+            const res = await axios.get(`${API}/auth/nominee-opportunities`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setOpportunities(res.data);
@@ -38,7 +40,7 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
             setVerifying(true);
             setError('');
             const token = localStorage.getItem('stardust_token');
-            await axios.post('http://16.170.248.196:5001/api/auth/link-account', {
+            await axios.post(`${API}/auth/link-account`, {
                 nomineeId: selectedNominee.nominee_id,
                 securityCode: securityCode
             }, {
@@ -70,7 +72,7 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="relative w-full max-w-md bg-[var(--surface)] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl overflow-hidden"
+                className="relative w-full max-w-md bg-[#111827] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl overflow-hidden"
             >
                 {/* Decorative gradients */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -translate-y-16 translate-x-16" />

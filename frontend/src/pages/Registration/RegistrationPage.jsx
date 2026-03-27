@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Shield, User, Mail, Lock, Phone, ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://16.170.248.196:5001/api/auth';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api/auth';
 
 const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
   const [step, setStep] = useState(1);
@@ -16,7 +16,6 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
   ]);
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
     phone: '',
     password: '',
     confirmPassword: ''
@@ -70,7 +69,6 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
       const fullPhone = `${countryCode}${formData.phone.replace(/\D/g, '')}`;
       const response = await axios.post(`${API_BASE}/register`, {
         full_name: formData.name,
-        email: formData.email,
         mobile: fullPhone,
         password: formData.password,
         security_answers: securityData
@@ -96,8 +94,9 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
     setError('');
 
     try {
+      const fullPhone = `${countryCode}${formData.phone.replace(/\D/g, '')}`;
       const response = await axios.post(`${API_BASE}/verify-otp`, {
-        userId: regDetails.userId,
+        mobile: fullPhone,
         otp: otpCode
       });
 
@@ -221,17 +220,6 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Digital Mail</label>
-                  <div className="relative group">
-                    <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
-                    <input
-                      type="email" required placeholder="john@cloud.com" className="input-field pl-14"
-                      value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
                   <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Contact Link</label>
                   <div className="flex space-x-3">
                     <select
@@ -256,7 +244,7 @@ const RegistrationPage = ({ onRegisterSuccess, onBackToLogin }) => {
                 <button
                   type="button"
                   onClick={() => {
-                    if (!formData.name || !formData.email || !formData.phone) {
+                    if (!formData.name || !formData.phone) {
                       setError('Required fields missing in Identity section.');
                       return;
                     }

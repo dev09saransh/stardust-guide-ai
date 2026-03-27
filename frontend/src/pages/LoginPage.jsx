@@ -268,53 +268,26 @@ const LoginPage = ({ onLoginSuccess, onRegisterClick, setCurrentPage, isLite = f
               className="space-y-5"
             >
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">Email or Mobile</label>
-                <div className="flex gap-2 relative">
-                  <div className="relative w-[85px]">
-                    <button
-                      type="button"
-                      onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                      className="w-full px-3 py-[11px] bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-1 transition-all hover:bg-[var(--surface)]"
-                    >
-                      {countryCode}
-                      <motion.div animate={{ rotate: showCountryDropdown ? 180 : 0 }}>
-                        <ArrowRight size={14} className="rotate-90" />
-                      </motion.div>
-                    </button>
-                    <AnimatePresence>
-                      {showCountryDropdown && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          className="absolute top-full left-0 mt-2 w-40 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl z-50 overflow-hidden p-1.5"
-                        >
-                          {countryCodes.map(c => (
-                            <button
-                              key={c.code}
-                              type="button"
-                              onClick={() => { setCountryCode(c.code); setShowCountryDropdown(false); }}
-                              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex justify-between items-center ${countryCode === c.code ? 'bg-[var(--primary)] text-white' : 'text-[var(--text-primary)] hover:bg-[var(--surface-glass)]'}`}
-                            >
-                              <span>{c.name}</span>
-                              <span className="opacity-60">{c.code}</span>
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                  <div className="relative flex-1 group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
-                    <input
-                      type="text"
-                      required
-                      placeholder="name@email.com or 98765 43210"
-                      className="input-field pl-12 py-3"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    />
-                  </div>
+                <div style={{ position: 'relative' }}>
+                  {formData.email?.includes('@') || /^[a-zA-Z]/.test(formData.email || '') ? (
+                    <Mail size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', opacity: 0.5 }} />
+                  ) : (
+                    <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Phone size={18} style={{ color: 'var(--text-secondary)', opacity: 0.5 }} />
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', opacity: 0.9 }}>{countryCode}</span>
+                    </div>
+                  )}
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Email or Mobile" 
+                    className="input-field py-3.5"
+                    style={{ 
+                      paddingLeft: (formData.email?.includes('@') || /^[a-zA-Z]/.test(formData.email || '')) ? '44px' : '74px' 
+                    }}
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
                 </div>
               </div>
 

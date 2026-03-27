@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Shield, Lock, Mail, ArrowRight, AlertCircle, Terminal, X, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 
+const API = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
+
 const AdminLoginPage = ({ onLoginSuccess, onBackToWelcome }) => {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [loading, setLoading] = useState(false);
@@ -15,7 +17,7 @@ const AdminLoginPage = ({ onLoginSuccess, onBackToWelcome }) => {
         setError('');
 
         try {
-            const response = await axios.post('http://16.170.248.196:5001/api/auth/login', {
+            const response = await axios.post(`${API}/auth/login`, {
                 identifier: formData.email,
                 password: formData.password
             });

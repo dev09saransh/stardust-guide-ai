@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, User, Calendar, ArrowRight, ArrowLeft, CheckCircle, Loader2, ChevronDown } from 'lucide-react';
+import { MapPin, User, Calendar, ArrowRight, ArrowLeft, CheckCircle, Loader2, ChevronDown, Mail, ShieldCheck, Phone } from 'lucide-react';
 
 const GENDERS = ['Male', 'Female', 'Other'];
 
@@ -111,17 +111,69 @@ const buildSlides = (missingFields) => {
     return all;
 };
 
-const ProfileStepCarousel = ({ missingFields, form, setForm, onSave, saving, error, percentage }) => {
+const ProfileStepCarousel = ({ missingFields, form, setForm, onSave, saving, error, percentage, userToken, onClose }) => {
     const slides = buildSlides(missingFields);
     const [currentSlide, setCurrentSlide] = useState(0);
 
+    // Email Verification State
+    const [otpSent, setOtpSent] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [verifyingOtp, setVerifyingOtp] = useState(false);
+    const [emailVerified, setEmailVerified] = useState(false);
+    const [sendingOtp, setSendingOtp] = useState(false);
+    const [countryCode, setCountryCode] = useState('+91');
+    const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+
+    const countryCodes = [
+        { code: '+91', name: 'India' },
+        { code: '+1', name: 'USA' },
+        { code: '+44', name: 'UK' },
+        { code: '+971', name: 'UAE' },
+        { code: '+61', name: 'Australia' },
+    ];
+
     const slide = slides[currentSlide];
+
+    const sendEmailOtp = async () => {
+        setSendingOtp(true);
+        try {
+            const API = (process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api') + '/auth';
+            await axios.post(`${API}/send-email-otp`, {}, {
+                headers: { Authorization: `Bearer ${userToken}` }
+            });
+            setOtpSent(true);
+        } catch (err) {
+            console.error('Failed to send OTP:', err);
+        } finally {
+            setSendingOtp(false);
+        }
+    };
+
+    const verifyEmailOtp = async () => {
+        setVerifyingOtp(true);
+        try {
+            const API = (process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api') + '/auth';
+            await axios.post(`${API}/verify-email-otp`, { otp }, {
+                headers: { Authorization: `Bearer ${userToken}` }
+            });
+            setEmailVerified(true);
+        } catch (err) {
+            console.error('Failed to verify OTP:', err);
+        } finally {
+            setVerifyingOtp(false);
+        }
+    };
     const isLastSlide = currentSlide === slides.length - 1;
     const isFirstSlide = currentSlide === 0;
 
     const handleNext = () => {
         if (isLastSlide) {
-            onSave();
+            // Include country code in mobile before saving if it was edited
+            const finalForm = { ...form };
+            if (form.mobile && !form.mobile.startsWith('+')) {
+                finalForm.mobile = `${countryCode}${form.mobile.replace(/\D/g, '')}`;
+            }
+            onSave(finalForm);
         } else {
             setCurrentSlide(prev => prev + 1);
         }
@@ -301,6 +353,199 @@ const ProfileStepCarousel = ({ missingFields, form, setForm, onSave, saving, err
             );
         }
 
+        if (fieldKey === 'email') {
+            return (
+                <div key="email">
+                    <label style={labelStyle}>Primary Email</label>
+                    <div style={{ position: 'relative', marginBottom: '12px' }}>
+                        <Mail size={17} style={{
+                            position: 'absolute', left: '14px', top: '50%',
+                            transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.28)',
+                        }} />
+                        <input
+                            type="email"
+                            placeholder="your@email.com"
+                            value={form.email}
+                            onChange={e => {
+                                setForm(f => ({ ...f, email: e.target.value }));
+                                setOtpSent(false); // Reset if changed
+                                setEmailVerified(false);
+                            }}
+                            onFocus={inputFocus}
+                            onBlur={inputBlur}
+                            style={{ ...inputStyle, paddingLeft: '44px' }}
+                        />
+                    </div>
+
+                    {!emailVerified ? (
+                        <div style={{
+                            background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)',
+                            padding: '16px', borderRadius: '16px',
+                        }}>
+                            {!otpSent ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                    <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: 0, fontWeight: 500 }}>
+                                        Verification required to secure vault assets.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={sendEmailOtp}
+                                        disabled={sendingOtp || !form.email}
+                                        style={{
+                                            padding: '8px 16px', borderRadius: '10px',
+                                            background: '#6366f1', color: 'white',
+                                            border: 'none', fontSize: '11px', fontWeight: 800,
+                                            cursor: 'pointer', whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {sendingOtp ? 'Sending...' : 'Verify Email'}
+                                    </button>
+                                </div>
+                            ) : (
+                                <div>
+                                    <p style={{ fontSize: '11px', fontWeight: 800, color: '#6366f1', textTransform: 'uppercase', marginBottom: '10px' }}>
+                                        Verification Code Sent!
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="6-digit OTP"
+                                            value={otp}
+                                            onChange={e => setOtp(e.target.value)}
+                                            style={{ ...inputStyle, flex: 1, textAlign: 'center', letterSpacing: '4px' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={verifyEmailOtp}
+                                            disabled={verifyingOtp || otp.length < 6}
+                                            style={{
+                                                padding: '0 20px', borderRadius: '14px',
+                                                background: '#10b981', color: 'white',
+                                                border: 'none', fontSize: '12px', fontWeight: 800,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            {verifyingOtp ? '...' : 'Confirm'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)',
+                            padding: '12px 16px', borderRadius: '16px', color: '#10b981',
+                        }}>
+                            <ShieldCheck size={18} />
+                            <span style={{ fontSize: '13px', fontWeight: 700 }}>Email Security Verified</span>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        if (fieldKey === 'mobile') {
+            return (
+                <div key="mobile" style={{ marginBottom: '12px' }}>
+                    <label style={labelStyle}>Mobile Number</label>
+                    <div style={{ display: 'flex', gap: '8px', position: 'relative' }}>
+                        <div style={{ position: 'relative', width: '85px', flexShrink: 0 }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                                style={{
+                                    width: '100%',
+                                    padding: '14px 8px',
+                                    background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '14px',
+                                    color: 'white',
+                                    fontSize: '13px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '4px',
+                                }}
+                            >
+                                {countryCode}
+                                <motion.div animate={{ rotate: showCountryDropdown ? 180 : 0 }} style={{ display: 'flex' }}>
+                                    <ChevronDown size={14} />
+                                </motion.div>
+                            </button>
+                            <AnimatePresence>
+                                {showCountryDropdown && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 'calc(100% + 8px)',
+                                            left: 0,
+                                            width: '160px',
+                                            background: '#121220',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            borderRadius: '16px',
+                                            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                                            zIndex: 100,
+                                            overflow: 'hidden',
+                                            padding: '6px',
+                                        }}
+                                    >
+                                        {countryCodes.map(c => (
+                                            <button
+                                                key={c.code}
+                                                type="button"
+                                                onClick={() => {
+                                                    setCountryCode(c.code);
+                                                    setShowCountryDropdown(false);
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px 12px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    background: countryCode === c.code ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                                                    color: countryCode === c.code ? '#a5b4fc' : 'white',
+                                                    border: 'none',
+                                                    borderRadius: '10px',
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s',
+                                                    textAlign: 'left'
+                                                }}
+                                            >
+                                                <span>{c.name}</span>
+                                                <span style={{ opacity: 0.6 }}>{c.code}</span>
+                                            </button>
+                                        ))}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                            <Phone size={17} style={{
+                                position: 'absolute', left: '16px', top: '50%',
+                                transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.28)',
+                            }} />
+                            <input
+                                type="tel"
+                                placeholder="98765 43210"
+                                value={form.mobile}
+                                onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))}
+                                onFocus={inputFocus}
+                                onBlur={inputBlur}
+                                style={{ ...inputStyle, paddingLeft: '44px' }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            );
+        }
         return null;
     };
 
@@ -368,6 +613,26 @@ const ProfileStepCarousel = ({ missingFields, form, setForm, onSave, saving, err
                                 <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', marginTop: '6px', textAlign: 'center', fontWeight: 500 }}>
                                     Complete these in the dashboard to finish setup.
                                 </p>
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    style={{
+                                        marginTop: '10px',
+                                        width: '100%',
+                                        padding: '12px',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '14px',
+                                        color: 'white',
+                                        fontSize: '12px',
+                                        fontWeight: 800,
+                                        cursor: 'pointer',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em'
+                                    }}
+                                >
+                                    Got It, I'll Finish Later
+                                </button>
                             </div>
                         ) : (
                             slide.fields.map(renderField)

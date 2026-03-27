@@ -1,10 +1,11 @@
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
+// Create SMTP transporter
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
+    port: process.env.SMTP_PORT,
+    secure: process.env.SMTP_PORT == 465, // true for 465, false for other ports
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -12,68 +13,66 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * Sends an OTP email using AWS SES (via Nodemailer)
- * @param {string} to - The recipient's email address
- * @param {string} otp - The 6-digit OTP code
+ * Sends an OTP email
  */
 const sendEmailOTP = async (to, otp) => {
-    if (!process.env.SMTP_HOST) {
-        console.log(`⚠️ SMTP NOT CONFIGURED. MOCK EMAIL OTP to ${to}: ${otp} ⚠️`);
-        return { success: true, mock: true };
-    }
+    const mailOptions = {
+        from: process.env.EMAIL_FROM,
+        to,
+        subject: 'Stardust Vault - Your Verification Code',
+        html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #6366f1; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.025em;">STARDUST</h1>
+                    <p style="color: #64748b; margin: 4px 0 0 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">Secure Digital Legacy</p>
+                </div>
+                
+                <h2 style="color: #1e293b; font-size: 20px; font-weight: 800; margin-bottom: 16px;">Security Verification</h2>
+                <p style="color: #475569; font-size: 15px; line-height: 24px; margin-bottom: 24px;">Hello, your one-time verification code for Stardust Vault is below. This code will expire in 10 minutes.</p>
+                
+                <div style="background: #f8fafc; border: 1px solid #f1f5f9; padding: 24px; text-align: center; border-radius: 12px; margin-bottom: 24px;">
+                    <span style="font-family: monospace; font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #1e1b4b;">
+                        ${otp}
+                    </span>
+                </div>
+                
+                <p style="color: #64748b; font-size: 13px; line-height: 20px;">If you did not request this code, please ignore this email or contact support if you have concerns about your account security.</p>
+                
+                <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 32px 0;" />
+                
+                <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 0;">&copy; 2026 Stardust Financial Vault. ap-south-1 SECURE SERVER.</p>
+            </div>
+        `
+    };
 
     try {
-        const htmlContent = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-                <div style="background: linear-gradient(135deg, #7c3aed, #4f46e5); padding: 30px; text-align: center;">
-                    <h1 style="color: white; margin: 0; font-size: 24px;">Stardust Vault</h1>
-                </div>
-                <div style="padding: 30px; background: #ffffff;">
-                    <h2 style="color: #1f2937; margin-top: 0;">Nominee Verification</h2>
-                    <p style="color: #4b5563; font-size: 16px; line-height: 1.5;">You have been added as a legacy contact for a Stardust secure vault. Please use the verification code below to confirm your email address.</p>
-                    
-                    <div style="background: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0;">
-                        <span style="font-size: 32px; font-weight: 800; letter-spacing: 4px; color: #4f46e5;">${otp}</span>
-                    </div>
-                    
-                    <p style="color: #6b7280; font-size: 14px; text-align: center; margin-bottom: 0;">This code is valid for 10 minutes.</p>
-                </div>
-            </div>
-        `;
-
-        const info = await transporter.sendMail({
-            from: process.env.EMAIL_FROM || '"Stardust Security" <onboarding@resend.dev>',
-            to: to,
-            subject: 'Your Stardust Verification Code',
-            html: htmlContent,
-        });
-
-        console.log(`✅ [SES EMAIL] OTP sent to ${to}. Message ID: ${info.messageId}`);
-        return info;
-    } catch (err) {
-        console.error('❌ [SES EMAIL ERROR]:', err.message);
-        return { error: err.message };
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ [EMAIL SENT]: %s', info.messageId);
+        return { success: true, messageId: info.messageId };
+    } catch (error) {
+        console.error('❌ [EMAIL ERROR]:', error);
+        throw error;
     }
 };
 
+/**
+ * Generic Email Sender
+ */
 const sendEmail = async (to, subject, html) => {
-    if (!process.env.SMTP_HOST) {
-        console.warn(`⚠️ SMTP NOT CONFIGURED. MOCK EMAIL to ${to}`);
-        return { id: 'mock_id', success: true };
-    }
+    const mailOptions = {
+        from: process.env.EMAIL_FROM,
+        to,
+        subject,
+        html
+    };
 
     try {
-        const info = await transporter.sendMail({
-            from: process.env.EMAIL_FROM || '"Stardust" <vault@resend.dev>',
-            to: to,
-            subject: subject,
-            html: html,
-        });
-        console.log(`✅ [SES EMAIL] Sent to ${to}. Message ID: ${info.messageId}`);
-        return info;
-    } catch (err) {
-        console.error('❌ [SES EMAIL ERROR]:', err.message);
-        return { error: err.message };
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ [EMAIL SENT]: %s', info.messageId);
+        return { success: true, messageId: info.messageId };
+    } catch (error) {
+        console.error('❌ [EMAIL ERROR]:', error);
+        throw error;
     }
 };
 

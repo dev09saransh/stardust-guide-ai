@@ -47,13 +47,15 @@ import OnboardingTour from '../../components/Onboarding/OnboardingTour';
 import NomineeSetupModal from '../../components/Onboarding/NomineeSetupModal';
 import ProfileCompletionModal from '../../components/profile/ProfileCompletionModal';
 import { VaultConfirm } from '../../components/common/VaultUI';
-import AuthModal from '../../components/auth/AuthModal';
+import AuthModal from '../../components/Auth/AuthModal';
 import DataSyncModal from '../../components/Dashboard/DataSyncModal';
 import FirstAssetWizard, { CelebrationScreen } from '../../components/Onboarding/FirstAssetWizard';
 import ManualClaimModal from '../../components/Dashboard/ManualClaimModal';
 import LoginAuditTable from '../../components/Dashboard/LoginAuditTable';
 import AddAccountModal from '../../components/Dashboard/AddAccountModal';
 import MobileNav from '../../components/Navigation/MobileNav';
+import FeedbackModal from '../../components/Dashboard/FeedbackModal';
+import LegalCenterLayout from '../../components/Legal/LegalCenterLayout';
 
 const SearchOverlay = ({ isOpen, onClose, searchQuery, setSearchQuery }) => (
   <AnimatePresence>
@@ -293,7 +295,7 @@ const AssetDetailOverlay = ({ asset: card, onClose, fetchAIStats, benefitsLoadin
   );
 };
 
-const DashboardPage = ({ user, onLogout, isGuest = false }) => {
+const DashboardPage = ({ user, onLogout, isGuest = false, isSessionOnboarded }) => {
   const { theme, toggleTheme } = useTheme();
   const { isOnboarded, showToast, profileCompletion: contextProfileCompletion, ...auth } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -337,15 +339,16 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   const renderSidebarContent = (isMobile = false) => (
     <>
-      <div className={`flex items-center mb-10 px-2 relative z-10 ${isSidebarCollapsed ? 'justify-center' : 'space-x-3 text-left'}`}>
-        <div className={`rounded-xl bg-gradient-to-br from-[var(--primary)] to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 shrink-0 transition-all duration-300 ${isSidebarCollapsed ? 'w-10 h-10' : 'w-12 h-12'}`}>
-          <ShieldCheck size={isSidebarCollapsed ? 22 : 28} />
+      <div className={`flex items-center mb-6 px-2 relative z-10 ${isSidebarCollapsed ? 'justify-center' : 'space-x-3 text-left'}`}>
+        <div className={`rounded-xl bg-gradient-to-br from-[var(--primary)] to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 shrink-0 transition-all duration-300 ${isSidebarCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`}>
+          <ShieldCheck size={isSidebarCollapsed ? 18 : 22} />
         </div>
         {!isSidebarCollapsed && (
-          <span className="text-2xl font-black tracking-tighter text-[var(--text-primary)] transition-all duration-300">STARDUST</span>
+          <span className="text-xl font-black tracking-tighter text-[var(--text-primary)] transition-all duration-300">STARDUST</span>
         )}
         {isMobile && (
           <button 
@@ -365,7 +368,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
           { id: 'assets', label: 'Assets', icon: <Wallet size={20} /> },
           { id: 'insurance', label: 'Insurance', icon: <ShieldCheck size={20} /> },
           { id: 'credentials', label: 'Passwords', icon: <Key size={20} /> },
-          { id: 'legal', label: 'Legal Center', icon: <FileText size={20} /> },
+          { id: 'legal', label: 'Documents', icon: <FileText size={20} /> },
           { id: 'contacts', label: 'Contacts', icon: <Users size={20} /> },
           // { id: 'recover', label: 'Recover Vault', icon: <ShieldAlert size={20} /> },
           { id: 'security', label: 'Security Log', icon: <Shield size={20} /> },
@@ -381,7 +384,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
               }
               setShowMobileSidebar(false);
             }}
-            className={`w-full nav-item group flex items-center rounded-2xl transition-all ${activeTab === item.id ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]'} ${isSidebarCollapsed ? 'justify-center p-3' : 'space-x-3 px-4 py-3'}`}
+            className={`w-full nav-item group flex items-center rounded-2xl transition-all ${activeTab === item.id ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]'} ${isSidebarCollapsed ? 'justify-center p-2.5' : 'space-x-3 px-3 py-2.5'}`}
             title={isSidebarCollapsed ? item.label : ''}
           >
             <span className={`transition-transform group-hover:scale-110 shrink-0 ${activeTab === item.id ? 'text-white' : 'text-inherit opacity-70'}`}>
@@ -406,7 +409,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
               handleNavClick('settings');
               setShowMobileSidebar(false);
             }}
-            className={`w-full nav-item group flex items-center rounded-2xl transition-all ${activeTab === 'settings' ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]'} ${isSidebarCollapsed ? 'justify-center p-3' : 'space-x-3 px-4 py-3'}`}
+            className={`w-full nav-item group flex items-center rounded-2xl transition-all ${activeTab === 'settings' ? 'bg-[var(--primary)] text-white shadow-lg shadow-blue-500/20' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-glass)] hover:text-[var(--text-primary)]'} ${isSidebarCollapsed ? 'justify-center p-2.5' : 'space-x-3 px-3 py-2.5'}`}
             title={isSidebarCollapsed ? 'Settings' : ''}
           >
             <SettingsIcon size={20} className={`shrink-0 ${activeTab === 'settings' ? 'text-white' : 'text-inherit opacity-70'}`} />
@@ -427,18 +430,18 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
         ) : (
           <div className="flex flex-col space-y-6">
             <div className={`space-y-4 ${isSidebarCollapsed ? 'px-0' : 'px-2'}`}>
-              <div onClick={() => { switchAccount(null); setShowMobileSidebar(false); }} className={`relative overflow-hidden group rounded-2xl border transition-all cursor-pointer ${!activeAccount ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-[var(--surface-glass)] border-[var(--border)] hover:bg-[var(--surface)]'} ${isSidebarCollapsed ? 'p-2' : 'p-4'}`}>
-                <div className={`flex items-center relative z-10 transition-all ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'}`}>
-                  <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-black shadow-inner transition-colors ${!activeAccount ? 'bg-white text-blue-600' : 'bg-[var(--surface-glass)] text-[var(--text-secondary)]'}`}>
+              <div onClick={() => { switchAccount(null); setShowMobileSidebar(false); }} className={`relative overflow-hidden group rounded-2xl border transition-all cursor-pointer ${!activeAccount ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-[var(--surface-glass)] border-[var(--border)] hover:bg-[var(--surface)]'} ${isSidebarCollapsed ? 'p-1.5' : 'p-3'}`}>
+                <div className={`flex items-center relative z-10 transition-all ${isSidebarCollapsed ? 'justify-center' : 'space-x-2'}`}>
+                  <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center font-black shadow-inner transition-colors ${!activeAccount ? 'bg-white text-blue-600' : 'bg-[var(--surface-glass)] text-[var(--text-secondary)]'}`}>
                     {user?.user?.name ? user.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'VH'}
                   </div>
                   {!isSidebarCollapsed && (
                     <div className="flex-1 truncate transition-all duration-300">
-                      <p className={`text-sm font-black truncate ${!activeAccount ? 'text-white' : 'text-[var(--text-primary)]'}`}>My Personal Vault</p>
-                      <p className={`text-[10px] font-black uppercase tracking-widest ${!activeAccount ? 'text-blue-100/60' : 'text-[var(--text-secondary)]'}`}>Main Storage</p>
+                      <p className={`text-[13px] font-black truncate ${!activeAccount ? 'text-white' : 'text-[var(--text-primary)]'}`}>My Personal Vault</p>
+                      <p className={`text-[9px] font-black uppercase tracking-widest ${!activeAccount ? 'text-blue-100/60' : 'text-[var(--text-secondary)]'}`}>Main Storage</p>
                     </div>
                   )}
-                  {!activeAccount && !isSidebarCollapsed && <div className="w-2 h-2 rounded-full bg-blue-100 animate-pulse" />}
+                  {!activeAccount && !isSidebarCollapsed && <div className="w-1.5 h-1.5 rounded-full bg-blue-100 animate-pulse" />}
                 </div>
               </div>
 
@@ -533,7 +536,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const API = 'http://16.170.248.196:5001/api';
+  const API = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
   const authHeaders = useMemo(() => {
     const headers = { Authorization: `Bearer ${user?.token || ''}` };
     if (activeAccount?.user_id) {
@@ -739,7 +742,10 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       showToast('View-only access: Document modification restricted.', 'error');
       return;
     }
-    if (!completionStats.is_complete) {
+    // REFINED GUARD: Only block if core personal details are missing.
+    // Nominee and Security are recommended but no longer block asset creation.
+    const coreMissing = completionStats.missing?.filter(f => ['full_name', 'email', 'mobile'].includes(f)) || [];
+    if (coreMissing.length > 0) {
       setShowProfilePrompt(true);
       return;
     }
@@ -855,7 +861,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       const network = card.metadata.network || card.metadata.Network || '';
       const variant = card.metadata.variant || card.metadata.Variant || '';
 
-      const res = await fetch('http://localhost:5005/card-benefits', {
+      const res = await fetch(`${process.env.REACT_APP_AI_SERVICE_URL || 'http://localhost:5005'}/card-benefits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bank, network, variant })
@@ -909,10 +915,12 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
               <UserPlus size={16} className="shrink-0" />
               <span>Add Nominee</span>
             </button>
+            {/* Export Report functionality hidden for now
             <button className="px-4 py-2.5 rounded-xl font-bold bg-[var(--surface-glass)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all flex items-center space-x-2 text-xs md:text-sm flex-1 md:flex-none justify-center">
               <FileText size={16} className="shrink-0" />
               <span>Export Report</span>
             </button>
+            */}
             <button id="add-resource-btn" onClick={() => guardedStartAdding(null)} className="btn-primary flex items-center space-x-2 px-6 py-3 md:py-2.5 text-sm w-full md:w-auto justify-center shadow-xl shadow-blue-500/20">
               <Plus size={18} className="shrink-0" />
               <span className="font-black">Add New Resource</span>
@@ -1497,84 +1505,12 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   };
 
   const renderLegal = () => {
-    if (loading) {
-      return (
-        <div className="flex h-64 items-center justify-center">
-          <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-        </div>
-      );
-    }
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-black text-[var(--text-primary)] tracking-tighter">Legal Repository</h1>
-            <p className="text-[var(--text-secondary)] mt-1 font-medium">Digitized and encrypted storage for critical legal foundations.</p>
-          </div>
-          <button onClick={() => guardedStartAdding('Legal Document')} className="btn-primary flex items-center space-x-2 px-6 py-3">
-            <Plus size={20} />
-            <span>Upload Document</span>
-          </button>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-          {assets.filter(a => a.category === 'Legal Document').map((doc, i) => (
-            <div
-              key={doc.asset_id}
-              onClick={() => setSelectedCard(doc)}
-              className="card glass p-8 flex flex-col items-center text-center group cursor-pointer hover:bg-[var(--surface-glass)] hover:border-[var(--primary)]/30 transition-all shadow-2xl relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-16 h-16 bg-[var(--primary)]/5 rounded-full blur-xl pointer-events-none" />
-
-              {/* Action Buttons */}
-              {!activeAccount && (
-                <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                  <button onClick={(e) => { e.stopPropagation(); handleEditAsset(doc); }} className="p-2 text-[var(--text-secondary)] hover:text-blue-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
-                    <Edit2 size={16} />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); setConfirmModal({ isOpen: true, id: doc.asset_id }); }} className="p-2 text-[var(--text-secondary)] hover:text-red-500 transition-colors rounded-lg hover:bg-[var(--surface-glass)]">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              )}
-
-              <div className="w-20 h-20 bg-[var(--surface-glass)] text-[var(--primary)] rounded-3xl flex items-center justify-center mb-6 relative transition-transform group-hover:scale-110 shadow-inner border border-[var(--border)]">
-                <FileText size={40} />
-                {doc.metadata?.uploadedFile && (
-                  <div className="absolute -bottom-2 right-[-2px] bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border-2 border-[var(--bg-app)] shadow-lg">
-                    {doc.metadata.uploadedFile.originalname?.split('.').pop()?.toUpperCase() || 'FILE'}
-                  </div>
-                )}
-              </div>
-              <h3 className="font-black text-[var(--text-primary)] mb-2 leading-tight px-2 group-hover:text-[var(--primary)] transition-colors tracking-tight truncate w-full">{doc.title || doc.metadata?.docName}</h3>
-              <p className="text-[10px] text-[var(--text-secondary)] font-black uppercase tracking-[0.2em] mb-4 opacity-50">
-                {doc.metadata?.uploadedFile ? `${(doc.metadata.uploadedFile.size / 1024 / 1024).toFixed(2)} MB` : 'No File'} • {new Date(doc.created_at).toLocaleDateString()}
-              </p>
-              <span className="px-3 py-1 rounded-lg bg-emerald-400/10 text-emerald-400 text-[9px] font-black border border-emerald-400/20 uppercase tracking-widest">
-                {doc.metadata?.docType || 'Secure Document'}
-              </span>
-            </div>
-          ))}
-          {assets.filter(a => a.category === 'Legal Document').length === 0 && (
-            <div className="col-span-full py-20 text-center text-[var(--text-secondary)] font-black uppercase tracking-[0.3em] text-xs opacity-50 border-2 border-dashed border-[var(--border)] rounded-[2rem]">
-              The archives are empty.
-            </div>
-          )}
-        </div>
-        <AnimatePresence>
-          {selectedCard && (
-            <AssetDetailOverlay
-              asset={selectedCard}
-              onClose={() => setSelectedCard(null)}
-              fetchAIStats={fetchAIStats}
-              benefitsLoading={benefitsLoading}
-              userName={userProfile?.full_name || user?.user?.name || user?.name}
-              onDelete={activeAccount ? null : handleDeleteAsset}
-              onEdit={activeAccount ? null : handleEditAsset}
-              isReadOnly={!!activeAccount}
-            />
-          )}
-        </AnimatePresence>
-      </motion.div>
+      <LegalCenterLayout 
+        user={user} 
+        assets={assets.filter(a => a.category === 'Legal Document')} 
+        onRefresh={fetchAssets} 
+      />
     );
   };
 
@@ -2003,9 +1939,10 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[var(--bg-app)] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-[100dvh] bg-[var(--bg-app)] overflow-hidden">
       <OnboardingTour
         user={user}
+        isSessionOnboarded={isSessionOnboarded}
         onComplete={handleTourComplete}
         onStepChange={handleTourStepChange}
       />
@@ -2050,7 +1987,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 min-h-0 h-full bg-[var(--bg-app)] relative overflow-hidden">
         {/* Top Header: Stays fixed at top */}
-        <header className="h-20 border-b border-[var(--border)] bg-[var(--surface)]/80 backdrop-blur-xl flex items-center justify-between px-6 md:px-10 shrink-0 z-40">
+        <header className="h-16 border-b border-[var(--border)] bg-[var(--surface)]/80 backdrop-blur-xl flex items-center justify-between px-6 md:px-10 shrink-0 z-40">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowMobileSidebar(true)}
@@ -2084,7 +2021,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                 </p>
               </div>
               <div
-                className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[var(--primary)] to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-blue-500/20"
+                className="w-8 h-8 rounded-xl bg-gradient-to-br from-[var(--primary)] to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-lg shadow-blue-500/20"
               >
                 {user?.user?.name ? user.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'VH'}
               </div>
@@ -2093,7 +2030,30 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
         </header>
 
         {/* Scrollable Workspace Area */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative min-h-0" >
+        <div className={`flex-1 relative min-h-0 ${activeTab === 'legal' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto custom-scrollbar'}`} >
+          {/* Onboarding Banner (Minimalist) */}
+          {!isGuest && (!completionStats.is_complete || !nominee) && (
+            <div className="bg-[var(--surface)] border-b border-[var(--primary)]/10 px-6 md:px-10 py-2.5 flex items-center justify-between relative z-30 shadow-lg">
+              <div className="flex items-center space-x-3 text-[var(--text-primary)]">
+                <div className="w-8 h-8 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)]">
+                  <AlertTriangle size={16} />
+                </div>
+                <span className="text-[11px] font-bold leading-tight opacity-90">
+                  Action Required: Please complete your 
+                  {!completionStats.is_complete && " profiles"}
+                  {!completionStats.is_complete && !nominee && " &"}
+                  {!nominee && " nominee onboarding"} 
+                </span>
+              </div>
+              <button 
+                onClick={() => !completionStats.is_complete ? setShowProfilePrompt(true) : setShowNomineeModal(true)}
+                className="ml-4 px-4 py-1.5 bg-[var(--primary)] text-white font-black text-[10px] uppercase tracking-widest rounded-lg hover:bg-[var(--primary-hover)] transition-all active:scale-95 whitespace-nowrap"
+              >
+                Finish Now
+              </button>
+            </div>
+          )}
+
           {/* Status Banners */}
           {
             userProfile && !userProfile.is_verified && !activeAccount && (
@@ -2138,7 +2098,16 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
                       initialData={editingAsset}
                       showToast={showToast}
                       onCancel={() => { cancelAdding(); setEditingAsset(null); }}
-                      onSave={() => { fetchAssets(); cancelAdding(); setEditingAsset(null); }}
+                      onSave={() => { 
+                        const isFirstAsset = assets.length === 0 && !editingAsset;
+                        fetchAssets(); 
+                        cancelAdding(); 
+                        setEditingAsset(null); 
+                        if (isFirstAsset && !localStorage.getItem('stardust_feedback_shown')) {
+                           setShowFeedbackModal(true);
+                           localStorage.setItem('stardust_feedback_shown', 'true');
+                        }
+                      }}
                     />
                   ) : (
                     <CategoryPicker onSelect={(cat) => setAddingCategory(cat)} onCancel={cancelAdding} />
@@ -2173,7 +2142,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-[280px] bg-[var(--surface)] border-r border-[var(--border)] z-[120] md:hidden p-6 overflow-y-auto custom-scrollbar min-h-0"
+              className="fixed inset-y-0 left-0 w-[260px] bg-[var(--surface)] border-r border-[var(--border)] z-[120] md:hidden p-6 overflow-y-auto custom-scrollbar min-h-0"
             >
               <div className="flex flex-col h-full">
                 {renderSidebarContent(true)}
@@ -2262,6 +2231,7 @@ const DashboardPage = ({ user, onLogout, isGuest = false }) => {
           setShowAddAccountModal(false);
         }}
       />
+      <FeedbackModal isOpen={showFeedbackModal} onClose={() => setShowFeedbackModal(false)} />
     </div >
   );
 };

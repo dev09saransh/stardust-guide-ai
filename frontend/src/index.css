@@ -5,28 +5,28 @@
 @tailwind utilities;
 
 :root {
-  /* Default: Cosmic Dark */
-  --primary: #3B82F6;
-  --primary-hover: #2563EB;
-  --bg-app: #0A1128;
-  --surface: #111827;
-  --surface-glass: rgba(255, 255, 255, 0.03);
-  --text-primary: #FFFFFF;
-  --text-secondary: #94A3B8;
-  --success: #10B981;
-  --warning: #F59E0B;
-  --error: #EF4444;
-  --border: rgba(255, 255, 255, 0.08);
+  /* Dynamic Theme Tokens - Light Mode (Default) */
+  --bg-app: #f1f5f9;
+  --surface: #ffffff;
+  --surface-glass: rgba(255, 255, 255, 0.7);
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border: rgba(0, 0, 0, 0.08);
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
 }
 
-[data-theme='light'] {
-  --bg-app: #F8FAFC;
-  --surface: #FFFFFF;
-  --surface-glass: rgba(0, 0, 0, 0.04);
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --border: rgba(0, 0, 0, 0.1);
-  --primary: #2563EB;
+[data-theme='dark'] {
+  /* Unified Dark Theme (Minimalist) */
+  --bg-app: #030712;
+  --surface: #0f172a;
+  --surface-glass: rgba(30, 41, 59, 0.5);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border: rgba(255, 255, 255, 0.05);
 }
 
 @media (max-width: 768px) {
@@ -106,17 +106,21 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--border);
   border-radius: 20px;
   border: 2px solid var(--bg-app);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--text-secondary);
 }
 
 .celestial-bg {
   background: radial-gradient(circle at top right, #1E40AF 0%, #0A1128 100%);
+}
+
+[data-theme='light'] .celestial-bg {
+  background: radial-gradient(circle at top right, #DBEAFE 0%, #F8FAFC 100%);
 }
 
 /* Animations */

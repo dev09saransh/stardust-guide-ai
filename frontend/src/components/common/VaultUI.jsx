@@ -60,10 +60,10 @@ export const VaultToast = ({ message, type = 'success', isVisible, onClose }) =>
         <AnimatePresence>
             {isVisible && (
                 <motion.div
-                    initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                    initial={{ opacity: 0, y: -50, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 50, scale: 0.9 }}
-                    className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] min-w-[300px]"
+                    exit={{ opacity: 0, y: -50, scale: 0.9 }}
+                    className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-40px)] md:w-auto md:min-w-[300px]"
                 >
                     <div className={`flex items-center space-x-4 px-6 py-4 rounded-2xl border backdrop-blur-xl shadow-2xl ${type === 'success'
                             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'

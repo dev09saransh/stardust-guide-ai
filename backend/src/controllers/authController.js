@@ -660,9 +660,9 @@ const verifyUserEmailOTP = async (req, res) => {
         if (!isMatch) return res.status(400).json({ message: 'Invalid OTP' });
 
         await db.execute('UPDATE otp_codes SET is_used = 1 WHERE otp_id = ?', [rows[0].otp_id]);
-        await db.execute('UPDATE users SET email_verified = 1 WHERE user_id = ?', [userId]);
+        await db.execute('UPDATE users SET is_email_verified = 1 WHERE user_id = ?', [userId]);
 
-        res.json({ message: 'Your email has been verified successfully', email_verified: true });
+        res.json({ message: 'Your email has been verified successfully', is_email_verified: true });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Failed to verify email OTP' });
@@ -724,12 +724,12 @@ const verifyNomineeEmailOTP = async (req, res) => {
         // Mark nominee email as verified
         if (email) {
             await db.execute(
-                'UPDATE nominees SET email_verified = 1 WHERE user_id = ? AND email = ?',
+                'UPDATE nominees SET is_email_verified = 1 WHERE user_id = ? AND email = ?',
                 [userId, email]
             );
         }
 
-        res.json({ message: 'Email verified successfully', email_verified: true });
+        res.json({ message: 'Email verified successfully', is_email_verified: true });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Failed to verify email OTP' });
@@ -859,7 +859,7 @@ const getUserProfile = async (req, res) => {
             if (access.length > 0) userId = vaultContext;
         }
 
-        const [rows] = await db.execute('SELECT user_id, full_name, email, mobile, address, gender, dob, role, is_verified, email_verified, has_completed_onboarding, security_code, last_login_at, inactivity_trigger_period, reminder_interval, nominee_limit, created_at FROM users WHERE user_id = ?', [userId]);
+        const [rows] = await db.execute('SELECT user_id, full_name, email, mobile, address, gender, dob, role, is_verified, is_email_verified, has_completed_onboarding, security_code, last_login_at, inactivity_trigger_period, reminder_interval, nominee_limit, created_at FROM users WHERE user_id = ?', [userId]);
         if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
 
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -882,7 +882,7 @@ const updateUserProfile = async (req, res) => {
         if (full_name !== undefined) { updates.push('full_name = ?'); values.push(full_name); }
         if (email !== undefined) { 
             updates.push('email = ?'); 
-            updates.push('email_verified = 0'); // Reset verification on email change
+            updates.push('is_email_verified = 0'); // Reset verification on email change
             values.push(email); 
         }
         if (mobile !== undefined) { updates.push('mobile = ?'); values.push(mobile); }
@@ -937,12 +937,12 @@ const getProfileCompletion = async (req, res) => {
         const [security] = await db.execute('SELECT COUNT(*) as count FROM user_security_answers WHERE user_id = ?', [userId]);
 
         // 2. Fetch personal fields
-        const [userRows] = await db.execute('SELECT full_name, email, mobile, address, gender, dob FROM users WHERE user_id = ?', [userId]);
+        const [userRows] = await db.execute('SELECT full_name, email, is_email_verified, mobile, address, gender, dob FROM users WHERE user_id = ?', [userId]);
         const user = userRows[0];
 
         const fields = {
             full_name: !!user.full_name,
-            email: !!user.email && !!user.email_verified, // Enforce email verification
+            email: !!user.email && !!user.is_email_verified, // Enforce email verification
             mobile: !!user.mobile,
             address: !!user.address,
             gender: !!user.gender,

@@ -24,6 +24,9 @@ import { SectionCard, ToggleSwitch } from './DisplayComponents';
 import { FormLayoutWrapper, UploadComponent } from './FormLayout';
 import axios from 'axios';
 
+const API = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
+const AI_SERVICE_URL = API.replace(':5001/api', ':5005');
+
 const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast, shake, glow }) => {
     const [formData, setFormData] = useState(initialData?.metadata || {});
     const [isSaving, setIsSaving] = useState(false);
@@ -38,7 +41,7 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
 
         setIsLoadingBenefits(true);
         try {
-            const response = await fetch('http://localhost:5005/card-benefits', {
+            const response = await fetch(`${AI_SERVICE_URL}/card-benefits`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -74,7 +77,7 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
 
             if (initialData?.asset_id) {
                 // Update mode
-                await axios.put(`http://16.170.248.196:5001/api/assets/${initialData.asset_id}`, {
+                await axios.put(`${API}/assets/${initialData.asset_id}`, {
                     category,
                     title: assetTitle,
                     metadata: finalMetadata,
@@ -85,7 +88,7 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
                 if (showToast) showToast(`${category} updated successfully`, 'success');
             } else {
                 // Create mode
-                await axios.post('http://16.170.248.196:5001/api/assets', {
+                await axios.post(`${API}/assets`, {
                     category,
                     title: assetTitle,
                     metadata: finalMetadata
@@ -438,7 +441,7 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
                                         const token = localStorage.getItem('stardust_token');
                                         const fd = new FormData();
                                         fd.append('file', file);
-                                        const res = await fetch('http://16.170.248.196:5001/api/uploads', {
+                                        const res = await fetch(`${API}/uploads`, {
                                             method: 'POST',
                                             headers: { 'Authorization': `Bearer ${token}` },
                                             body: fd
@@ -458,23 +461,23 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
                                     }
                                 }}
                                 onRemove={async () => {
-                                    if (formData.uploadedFile?.filename) {
-                                        try {
+                                        if (formData.uploadedFile?.filename) {
+                                            try {
+                                                const token = localStorage.getItem('stardust_token');
+                                                await fetch(`${API}/uploads/${formData.uploadedFile.filename}`, {
+                                                    method: 'DELETE',
+                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                });
+                                            } catch (err) { console.error(err); }
+                                        }
+                                        setFormData(prev => ({ ...prev, uploadedFile: null, _pendingFile: null }));
+                                    }}
+                                    onView={() => {
+                                        if (formData.uploadedFile?.filename) {
                                             const token = localStorage.getItem('stardust_token');
-                                            await fetch(`http://16.170.248.196:5001/api/uploads/${formData.uploadedFile.filename}`, {
-                                                method: 'DELETE',
-                                                headers: { 'Authorization': `Bearer ${token}` }
-                                            });
-                                        } catch (err) { console.error(err); }
-                                    }
-                                    setFormData(prev => ({ ...prev, uploadedFile: null, _pendingFile: null }));
-                                }}
-                                onView={() => {
-                                    if (formData.uploadedFile?.filename) {
-                                        const token = localStorage.getItem('stardust_token');
-                                        window.open(`http://16.170.248.196:5001/api/uploads/${formData.uploadedFile.filename}?token=${token}`, '_blank');
-                                    }
-                                }}
+                                            window.open(`${API}/uploads/${formData.uploadedFile.filename}?token=${token}`, '_blank');
+                                        }
+                                    }}
                             />
                         </div>
                     </SectionCard>
@@ -489,7 +492,6 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
                                 label="Relationship"
                                 options={['Spouse', 'Son', 'Daughter', 'Parent', 'Sibling', 'Lawyer', 'Advisor']}
                             />
-                            <InputField label="Email Address" type="email" />
                             <InputField label="Phone Number" />
                         </div>
                         <div className="pt-6 border-t border-gray-50 flex flex-col space-y-4">
@@ -583,12 +585,6 @@ const UniversalVaultForm = ({ category, onSave, onCancel, initialData, showToast
                                 placeholder="e.g. +91 98765 43210"
                                 value={formData.phone || ''}
                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            />
-                            <InputField
-                                label="Email Address"
-                                placeholder="e.g. ramesh@email.com"
-                                value={formData.email || ''}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             />
                             <DropdownSelector
                                 label="Role / Purpose"

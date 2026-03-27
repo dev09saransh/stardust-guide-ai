@@ -1,5 +1,6 @@
 const db = require('../config/db');
-const path = require('path');
+const s3Service = require('../services/s3Service');
+const compressionService = require('../services/compressionService');
 
 const verifyToken = async (req, res) => {
     const { token } = req.query;
@@ -48,7 +49,16 @@ const uploadProof = async (req, res) => {
         }
 
         const request = requests[0];
-        const proofPath = req.file.path;
+        let buffer = req.file.buffer;
+        const filename = `PROOF-${Date.now()}-${req.file.originalname}`;
+
+        // Compress if it's an image
+        if (compressionService.isImage(req.file.mimetype)) {
+            buffer = await compressionService.compressImage(buffer);
+        }
+
+        const result = await s3Service.uploadFile(buffer, filename, 'nominee-proofs', req.file.mimetype);
+        const proofPath = result.key;
 
         const connection = await db.getConnection();
         await connection.beginTransaction();
@@ -67,7 +77,7 @@ const uploadProof = async (req, res) => {
             );
 
             await connection.commit();
-            res.json({ message: 'Succession proof uploaded successfully. Awaiting admin verification.' });
+            res.json({ message: 'Succession proof uploaded successfully to S3. Awaiting admin verification.' });
         } catch (err) {
             await connection.rollback();
             throw err;
@@ -76,7 +86,7 @@ const uploadProof = async (req, res) => {
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Error uploading succession proof' });
+        res.status(500).json({ message: 'Error uploading succession proof to cloud storage' });
     }
 };
 
@@ -89,9 +99,9 @@ const discoverAccounts = async (req, res) => {
             SELECT u.user_id, u.full_name as user_name, n.nominee_id, n.created_at as assigned_date, u.succession_status
             FROM users u
             JOIN nominees n ON u.user_id = n.user_id
-            WHERE (n.email = ? OR n.mobile = ?)
+            WHERE n.mobile = ?
             AND u.user_id != ?
-        `, [email, mobile, req.user.user_id]);
+        `, [mobile, req.user.user_id]);
 
         res.json(nomineeRecords);
     } catch (error) {
@@ -119,7 +129,16 @@ const submitManualClaim = async (req, res) => {
             return res.status(403).json({ message: 'Unauthorized claim' });
         }
 
-        const proofPath = req.file.path;
+        let buffer = req.file.buffer;
+        const filename = `PROOF-MANUAL-${Date.now()}-${req.file.originalname}`;
+
+        // Compress if it's an image
+        if (compressionService.isImage(req.file.mimetype)) {
+            buffer = await compressionService.compressImage(buffer);
+        }
+
+        const result = await s3Service.uploadFile(buffer, filename, 'nominee-proofs', req.file.mimetype);
+        const proofPath = result.key;
         const token = `MANUAL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         const connection = await db.getConnection();
@@ -139,7 +158,7 @@ const submitManualClaim = async (req, res) => {
             );
 
             await connection.commit();
-            res.json({ message: 'Succession claim submitted for review.' });
+            res.json({ message: 'Succession claim submitted for review and stored in S3.' });
         } catch (err) {
             await connection.rollback();
             throw err;
@@ -148,18 +167,18 @@ const submitManualClaim = async (req, res) => {
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Error submitting manual claim' });
+        res.status(500).json({ message: 'Error submitting manual claim to cloud storage' });
     }
 };
 
 const verifyClaimOTP = async (req, res) => {
-    const { ownerEmail, otp } = req.body;
+    const { ownerMobile, otp } = req.body;
 
     try {
         // In a real scenario, we'd verify the OTP against the otp_codes table
         if (otp && otp.length === 6) {
             // Get owner's assets
-            const [owner] = await db.execute('SELECT user_id FROM users WHERE email = ?', [ownerEmail]);
+            const [owner] = await db.execute('SELECT user_id FROM users WHERE mobile = ?', [ownerMobile]);
             if (owner.length === 0) return res.status(404).json({ message: 'Owner not found' });
 
             const [assets] = await db.execute('SELECT * FROM assets WHERE user_id = ?', [owner[0].user_id]);
@@ -179,10 +198,10 @@ const verifyClaimOTP = async (req, res) => {
 };
 
 const initiateClaim = async (req, res) => {
-    const { ownerEmail, claimCode } = req.body;
+    const { ownerMobile, claimCode } = req.body;
 
     try {
-        const [ownerRows] = await db.execute('SELECT user_id, security_code FROM users WHERE email = ?', [ownerEmail]);
+        const [ownerRows] = await db.execute('SELECT user_id, security_code FROM users WHERE mobile = ?', [ownerMobile]);
         if (ownerRows.length === 0) {
             return res.status(404).json({ success: false, message: 'Vault owner not found' });
         }
@@ -206,7 +225,7 @@ const initiateClaim = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Unauthorized claim: No nominees registered for this vault' });
         }
 
-        console.log(`[SUCCESSION] Security ID Verified. Sending recovery pulse for vault ${ownerEmail} to nominee: ${nomineeRows[0].full_name}`);
+        console.log(`[SUCCESSION] Security ID Verified. Sending recovery pulse for vault (Mobile: ${ownerMobile}) to nominee: ${nomineeRows[0].full_name}`);
 
         res.json({
             success: true,

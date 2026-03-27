@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, RefreshCw, CheckCircle, AlertTriangle, X } from 'lucide-react';
 import axios from 'axios';
 
+const API = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
+
 const DataSyncModal = ({ isOpen, onClose, onSyncComplete, userToken, syncCategory = 'Investment' }) => {
     const [step, setStep] = useState('mobile'); // mobile, consent, loading, success, error
     const [mobile, setMobile] = useState('');
@@ -12,7 +14,7 @@ const DataSyncModal = ({ isOpen, onClose, onSyncComplete, userToken, syncCategor
     const [results, setResults] = useState([]);
     const [errorMsg, setErrorMsg] = useState('');
 
-    const API_BASE = 'http://16.170.248.196:5001/api/financial';
+    const API_BASE = `${API}/financial`;
     const authHeaders = { Authorization: `Bearer ${userToken}` };
 
     const handleInitiateSync = async () => {

@@ -29,7 +29,9 @@ const {
     getAuditLogs,
     getNomineeOpportunities,
     linkNomineeAccount,
-    updateVaultPolicy
+    updateVaultPolicy,
+    sendUserEmailOTP,
+    verifyUserEmailOTP
 } = require('../controllers/authController');
 const { auth } = require('../middleware/auth');
 
@@ -68,16 +70,23 @@ router.get('/onboarding-status', auth, getOnboardingStatus);
 // Nominee Management
 router.post('/nominee', auth, saveNominee);
 router.get('/nominee', auth, getNominee);
-router.post('/nominee/send-email-otp', auth, sendNomineeEmailOTP);
-router.post('/nominee/verify-email-otp', auth, verifyNomineeEmailOTP);
-router.post('/nominee/send-phone-otp', auth, sendNomineePhoneOTP);
-router.post('/nominee/verify-phone-otp', auth, verifyNomineePhoneOTP);
-
 // Profile
 router.get('/profile', auth, getUserProfile);
 router.put('/profile', auth, updateUserProfile);
 router.put('/vault-policy', auth, updateVaultPolicy);
 router.get('/profile-completion', auth, getProfileCompletion);
+
+// Email Verification (Primary Account)
+router.post('/send-email-otp', auth, sendUserEmailOTP);
+router.post('/verify-email-otp', auth, verifyUserEmailOTP);
+
+// Nominee Management
+router.post('/nominee', auth, saveNominee);
+router.get('/nominee', auth, getNominee);
+router.post('/nominee/send-email-otp', auth, sendNomineeEmailOTP);
+router.post('/nominee/verify-email-otp', auth, verifyNomineeEmailOTP);
+router.post('/nominee/send-phone-otp', auth, sendNomineePhoneOTP);
+router.post('/nominee/verify-phone-otp', auth, verifyNomineePhoneOTP);
 
 // Audit & Account Switching
 router.get('/audit-logs', auth, getAuditLogs);

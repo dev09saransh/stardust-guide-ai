@@ -1,6 +1,6 @@
 const db = require('../config/db');
 const { sendEmail } = require('../services/emailService');
-const { sendWhatsApp } = require('../services/msg91Service');
+const { sendWhatsAppTemplate } = require('../services/msg91Service');
 
 // @route   GET api/admin/users
 // @desc    Get all users for management
@@ -231,8 +231,16 @@ const handleSuccessionRequest = async (req, res) => {
                     `;
                     await sendEmail(d.nominee_email, approvalSubject, approvalHtml);
 
-                    const approvalWAMsg = `✅ [Stardust] Verification Complete! You now have access to ${d.owner_name}'s vault. Your Master Security Code is: ${d.security_code}. Log in to ${prodUrl} to link the account.`;
-                    await sendWhatsApp(d.nominee_mobile, approvalWAMsg);
+                    // Send Two-Part WhatsApp Notification
+                    // 1. The Guide (Utility Category)
+                    await sendWhatsAppTemplate(d.nominee_mobile, 'succession_guide_final_v1', {
+                        owner_name: d.owner_name
+                    });
+
+                    // 2. The Code (Authentication Category)
+                    await sendWhatsAppTemplate(d.nominee_mobile, 'succession_code_auth_stardust', {
+                        otp: d.security_code
+                    });
                 }
             } catch (notifyErr) {
                 console.error('Failed to send approval notification:', notifyErr);

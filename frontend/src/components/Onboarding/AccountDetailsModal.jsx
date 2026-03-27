@@ -24,7 +24,7 @@ const AccountDetailsModal = ({ user, onComplete }) => {
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [termsAccepted, setTermsAccepted] = useState(false);
 
-    const API = 'http://16.170.248.196:5001/api/auth';
+    const API = (process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api') + '/auth';
     const headers = { Authorization: `Bearer ${user.token}` };
 
     // Fetch existing profile data and auto-fill

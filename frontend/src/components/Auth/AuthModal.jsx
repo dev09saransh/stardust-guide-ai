@@ -307,11 +307,11 @@ const AuthModal = () => {
                     transition={{ type: 'spring', damping: 22, stiffness: 180 }}
                     style={{
                         position: 'relative', zIndex: 10,
-                        width: '100%', maxWidth: '440px',
-                        background: 'var(--surface)',
+                        width: '100%', maxWidth: '420px',
+                        background: 'var(--bg-app)',
                         borderRadius: '2rem',
                         border: '1px solid var(--border)',
-                        boxShadow: '0 40px 100px rgba(0,0,0,0.1), 0 0 60px rgba(99, 102, 241, 0.05)',
+                        boxShadow: '0 40px 100px rgba(0,0,0,0.5)',
                         overflow: 'hidden',
                         maxHeight: '90vh',
                         display: 'flex',
@@ -406,10 +406,10 @@ const AuthModal = () => {
                                                             style={{
                                                                 width: '100%',
                                                                 padding: '14px 8px',
-                                                                background: 'rgba(255,255,255,0.04)',
-                                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                                background: 'var(--surface-glass)',
+                                                                border: '1px solid var(--border)',
                                                                 borderRadius: '14px',
-                                                                color: 'white',
+                                                                color: 'var(--text-primary)',
                                                                 fontSize: '14px',
                                                                 fontWeight: 700,
                                                                 cursor: 'pointer',
@@ -422,7 +422,7 @@ const AuthModal = () => {
                                                             {loginCountryCode}
                                                             <motion.div
                                                                 animate={{ rotate: showLoginCountryDropdown ? 180 : 0 }}
-                                                                style={{ display: 'flex' }}
+                                                                style={{ display: 'flex', color: 'var(--text-secondary)' }}
                                                             >
                                                                 <ArrowRight size={14} style={{ transform: 'rotate(90deg)' }} />
                                                             </motion.div>
@@ -482,7 +482,7 @@ const AuthModal = () => {
                                                     </div>
 
                                                     <div style={{ position: 'relative', flex: 1 }}>
-                                                        <Phone size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', opacity: 0.5 }} />
+                                                        <Mail size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', opacity: 0.5 }} />
                                                         <input
                                                             type="text" required placeholder="name@email.com or 98765 43210"
                                                             style={inputStyle}
@@ -635,7 +635,7 @@ const AuthModal = () => {
                                                             <label style={labelStyle}>Full Name</label>
                                                             <div style={{ position: 'relative' }}>
                                                                 <User size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', opacity: 0.5 }} />
-                                                                <input type="text" required placeholder="John Doe" style={inputStyle}
+                                                                <input type="text" required placeholder="John Doe" style={{ ...inputStyle, paddingLeft: '44px' }}
                                                                     value={regForm.name}
                                                                     onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
                                                                     onFocus={e => { e.target.style.borderColor = 'rgba(99, 102, 241, 0.5)'; }}
@@ -643,99 +643,26 @@ const AuthModal = () => {
                                                                 />
                                                             </div>
                                                         </div>
-                                                        <div>
-                                                            <label style={labelStyle}>Email or Mobile</label>
-                                                            <div style={{ display: 'flex', gap: '8px', position: 'relative' }}>
-                                                                <div style={{ position: 'relative', width: '90px' }}>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                                                                        style={{
-                                                                            width: '100%',
-                                                                            padding: '14px 8px',
-                                                                            background: 'rgba(255,255,255,0.04)',
-                                                                            border: '1px solid rgba(255,255,255,0.1)',
-                                                                            borderRadius: '14px',
-                                                                            color: 'white',
-                                                                            fontSize: '14px',
-                                                                            fontWeight: 700,
-                                                                            cursor: 'pointer',
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            justifyContent: 'center',
-                                                                            gap: '4px',
-                                                                        }}
-                                                                    >
-                                                                        {countryCode}
-                                                                        <motion.div
-                                                                            animate={{ rotate: showCountryDropdown ? 180 : 0 }}
-                                                                            style={{ display: 'flex' }}
-                                                                        >
-                                                                            <ArrowRight size={14} style={{ transform: 'rotate(90deg)' }} />
-                                                                        </motion.div>
-                                                                    </button>
-
-                                                                    <AnimatePresence>
-                                                                        {showCountryDropdown && (
-                                                                            <motion.div
-                                                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                                                style={{
-                                                                                    position: 'absolute',
-                                                                                    top: 'calc(100% + 8px)',
-                                                                                    left: 0,
-                                                                                    width: '180px',
-                                                                                    background: 'var(--surface)',
-                                                                                    border: '1px solid var(--border)',
-                                                                                    borderRadius: '16px',
-                                                                                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-                                                                                    zIndex: 100,
-                                                                                    overflow: 'hidden',
-                                                                                    padding: '8px',
-                                                                                }}
-                                                                            >
-                                                                                {countryCodes.map(c => (
-                                                                                    <button
-                                                                                        key={c.code}
-                                                                                        type="button"
-                                                                                        onClick={() => {
-                                                                                            setCountryCode(c.code);
-                                                                                            setShowCountryDropdown(false);
-                                                                                        }}
-                                                                                        style={{
-                                                                                            width: '100%',
-                                                                                            padding: '10px 12px',
-                                                                                            display: 'flex',
-                                                                                            alignItems: 'center',
-                                                                                            justifyContent: 'space-between',
-                                                                                            background: countryCode === c.code ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
-                                                                                            color: countryCode === c.code ? 'white' : 'var(--text-primary)',
-                                                                                            border: 'none',
-                                                                                            borderRadius: '10px',
-                                                                                            fontSize: '13px',
-                                                                                            fontWeight: 600,
-                                                                                            cursor: 'pointer',
-                                                                                            transition: 'all 0.2s',
-                                                                                        }}
-                                                                                    >
-                                                                                        <span>{c.name}</span>
-                                                                                        <span style={{ opacity: 0.7 }}>{c.code}</span>
-                                                                                    </button>
-                                                                                ))}
-                                                                            </motion.div>
-                                                                        )}
-                                                                    </AnimatePresence>
+                                                        <div style={{ position: 'relative' }}>
+                                                            {regForm.identifier?.includes('@') || /^[a-zA-Z]/.test(regForm.identifier || '') ? (
+                                                                <Mail size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', opacity: 0.5 }} />
+                                                            ) : (
+                                                                <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <Phone size={18} style={{ color: 'var(--text-secondary)', opacity: 0.5 }} />
+                                                                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', opacity: 0.9 }}>{countryCode}</span>
                                                                 </div>
-
-                                                                <div style={{ position: 'relative', flex: 1 }}>
-                                                                    <Phone size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', opacity: 0.5 }} />
-                                                                    <input type="text" required placeholder="name@email.com or 98765 43210" style={inputStyle}
-                                                                        value={regForm.identifier || regForm.phone || ''}
-                                                                        onChange={(e) => setRegForm({ ...regForm, identifier: e.target.value, phone: e.target.value })}
-                                                                    />
-                                                                </div>
-                                                            </div>
+                                                            )}
+                                                            <input 
+                                                                type="text" 
+                                                                required 
+                                                                placeholder="Email or Mobile" 
+                                                                style={{ 
+                                                                    ...inputStyle, 
+                                                                    paddingLeft: (regForm.identifier?.includes('@') || /^[a-zA-Z]/.test(regForm.identifier || '')) ? '44px' : '74px' 
+                                                                }}
+                                                                value={regForm.identifier || ''}
+                                                                onChange={(e) => setRegForm({ ...regForm, identifier: e.target.value, phone: e.target.value })}
+                                                            />
                                                         </div>
                                                         <button type="button" style={btnPrimary}
                                                             onClick={() => {

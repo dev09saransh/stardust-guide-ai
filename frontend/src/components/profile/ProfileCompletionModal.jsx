@@ -5,7 +5,7 @@ import { Shield, CheckCircle, Loader2, X } from 'lucide-react';
 import ProfileProgressBar from './ProfileProgressBar';
 import ProfileStepCarousel from './ProfileStepCarousel';
 
-const API = 'http://16.170.248.196:5001/api/auth';
+const API = (process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api') + '/auth';
 
 const TOTAL_FIELDS = [
     'full_name', 'email', 'mobile', 'address', 'gender', 'dob'
@@ -82,14 +82,15 @@ const ProfileCompletionModal = ({ user, onComplete, onClose }) => {
     const totalCount = TOTAL_FIELDS.length;
 
     // ── Save only changed missing fields ──
-    const handleSave = async () => {
+    const handleSave = async (updatedForm) => {
         setError('');
+        const dataToSave = updatedForm || form;
         // Validate: any field in missingFields that is editable must be filled
         const editableKeys = ['address', 'gender', 'dob', 'full_name', 'email', 'mobile'];
         const editableMissing = missingFields.filter(f => editableKeys.includes(f));
 
         for (const field of editableMissing) {
-            if (!String(form[field] || '').trim()) {
+            if (!String(dataToSave[field] || '').trim()) {
                 setError(`Please fill in your ${field.replace('_', ' ')} before saving.`);
                 return;
             }
@@ -97,7 +98,7 @@ const ProfileCompletionModal = ({ user, onComplete, onClose }) => {
 
         setSaving(true);
         try {
-            await axios.put(`${API}/profile`, form, { headers });
+            await axios.put(`${API}/profile`, dataToSave, { headers });
             setSaveSuccess(true);
             setTimeout(() => { if (onComplete) onComplete(); }, 1600);
         } catch (err) {
@@ -284,6 +285,8 @@ const ProfileCompletionModal = ({ user, onComplete, onClose }) => {
                                     saving={saving}
                                     error={error}
                                     percentage={percentage}
+                                    userToken={user?.token}
+                                    onClose={onClose}
                                 />
                             </motion.div>
                         )}

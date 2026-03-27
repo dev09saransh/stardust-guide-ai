@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Shield, Lock, Users, Zap } from 'lucide-react';
 
 const slides = [
     {
-        emoji: '🛡️',
+        icon: <Shield size={48} />,
         title: 'Your Digital Asset Vault',
         subtitle: 'ONE SECURE PLACE FOR EVERYTHING',
         description: 'Store bank accounts, insurance policies, passwords, property documents, and more \u2014 all encrypted with military-grade security.',
@@ -12,7 +12,7 @@ const slides = [
         glowColor: 'rgba(99, 102, 241, 0.3)',
     },
     {
-        emoji: '🔐',
+        icon: <Lock size={48} />,
         title: 'Zero-Knowledge Encryption',
         subtitle: 'YOUR DATA. YOUR EYES ONLY.',
         description: 'Your data is encrypted before it ever leaves your device. Not even we can read it. Complete privacy, always.',
@@ -20,7 +20,7 @@ const slides = [
         glowColor: 'rgba(20, 184, 166, 0.3)',
     },
     {
-        emoji: '👨‍👩‍👧',
+        icon: <Users size={48} />,
         title: 'Protect Your Family\'s Future',
         subtitle: 'SMART LEGACY PLANNING',
         description: 'Designate trusted nominees who can access your vault when needed. Smart inheritance protocols keep your family safe.',
@@ -28,7 +28,7 @@ const slides = [
         glowColor: 'rgba(168, 85, 247, 0.3)',
     },
     {
-        emoji: '⚡',
+        icon: <Zap size={48} />,
         title: 'Ready in Under 4 Minutes',
         subtitle: 'SIMPLE. SECURE. FUTURE-PROOF.',
         description: 'Add your first asset in just 3 steps. No complex setup, no lengthy forms. Your digital legacy starts right now.',
@@ -88,19 +88,19 @@ const OnboardingCarousel = ({ onComplete }) => {
             {/* Floating particles background */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 {Array.from({ length: 20 }).map((_, i) => (
-                    <motion.div
+                        <motion.div
                         key={i}
                         className="absolute rounded-full"
                         style={{
                             width: `${4 + Math.random() * 8}px`,
                             height: `${4 + Math.random() * 8}px`,
-                            background: `rgba(255, 255, 255, ${0.03 + Math.random() * 0.08})`,
+                            background: `rgba(0, 0, 0, ${0.03 + Math.random() * 0.08})`,
                             left: `${Math.random() * 100}%`,
                             top: `${Math.random() * 100}%`,
                         }}
                         animate={{
                             y: [0, -30 - Math.random() * 60, 0],
-                            opacity: [0.3, 0.8, 0.3],
+                            opacity: [0.1, 0.4, 0.1],
                         }}
                         transition={{
                             duration: 4 + Math.random() * 4,
@@ -122,9 +122,9 @@ const OnboardingCarousel = ({ onComplete }) => {
                 <div
                     className="rounded-[2.5rem] overflow-hidden"
                     style={{
-                        background: 'rgba(20, 20, 35, 0.95)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        boxShadow: `0 40px 100px rgba(0,0,0,0.5), 0 0 80px ${slide.glowColor}`,
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        boxShadow: `0 40px 100px rgba(0,0,0,0.1), 0 0 80px ${slide.glowColor}`,
                     }}
                 >
                     {/* Slide Content */}
@@ -141,10 +141,10 @@ const OnboardingCarousel = ({ onComplete }) => {
                             >
                                 {/* Gradient glow behind icon */}
                                 <div
-                                    className={`absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[200px] bg-gradient-to-b ${slide.gradient} opacity-20 blur-[80px] rounded-full pointer-events-none`}
+                                    className={`absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[200px] bg-gradient-to-b ${slide.gradient} opacity-10 blur-[80px] rounded-full pointer-events-none`}
                                 />
 
-                                {/* Emoji Icon */}
+                                {/* Lucide Icon */}
                                 <motion.div
                                     initial={{ scale: 0, rotate: -30 }}
                                     animate={{ scale: 1, rotate: 0 }}
@@ -152,10 +152,10 @@ const OnboardingCarousel = ({ onComplete }) => {
                                     className="relative mb-8"
                                 >
                                     <div
-                                        className={`w-28 h-28 rounded-[2rem] bg-gradient-to-br ${slide.gradient} flex items-center justify-center shadow-2xl`}
+                                        className={`w-28 h-28 rounded-[2rem] bg-gradient-to-br ${slide.gradient} flex items-center justify-center shadow-2xl text-white`}
                                         style={{ boxShadow: `0 16px 48px ${slide.glowColor}` }}
                                     >
-                                        <span className="text-5xl">{slide.emoji}</span>
+                                        {slide.icon}
                                     </div>
                                 </motion.div>
 
@@ -175,7 +175,7 @@ const OnboardingCarousel = ({ onComplete }) => {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.3 }}
-                                    className="text-[28px] md:text-[32px] font-black text-white tracking-tight mb-5 leading-[1.15]"
+                                    className="text-[28px] md:text-[32px] font-black text-[var(--text-primary)] tracking-tight mb-5 leading-[1.15]"
                                 >
                                     {slide.title}
                                 </motion.h2>
@@ -185,7 +185,7 @@ const OnboardingCarousel = ({ onComplete }) => {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.35 }}
-                                    className="text-[15px] text-gray-400 leading-relaxed max-w-sm mx-auto font-medium"
+                                    className="text-[15px] text-[var(--text-secondary)] leading-relaxed max-w-sm mx-auto font-medium"
                                 >
                                     {slide.description}
                                 </motion.p>
@@ -207,7 +207,7 @@ const OnboardingCarousel = ({ onComplete }) => {
                                         height: '8px',
                                         background: i === currentSlide
                                             ? `linear-gradient(90deg, ${i === 0 ? '#6366f1' : i === 1 ? '#14b8a6' : i === 2 ? '#a855f7' : '#f59e0b'}, ${i === 0 ? '#8b5cf6' : i === 1 ? '#06b6d4' : i === 2 ? '#ec4899' : '#ef4444'})`
-                                            : 'rgba(255,255,255,0.15)',
+                                            : 'var(--border)',
                                     }}
                                 />
                             ))}
@@ -220,9 +220,10 @@ const OnboardingCarousel = ({ onComplete }) => {
                                 disabled={currentSlide === 0}
                                 className="p-3 rounded-xl transition-all"
                                 style={{
-                                    background: currentSlide === 0 ? 'transparent' : 'rgba(255,255,255,0.06)',
-                                    border: '1px solid rgba(255,255,255,0.08)',
-                                    color: currentSlide === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)',
+                                    background: currentSlide === 0 ? 'transparent' : 'var(--surface-glass)',
+                                    border: '1px solid var(--border)',
+                                    color: currentSlide === 0 ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                    opacity: currentSlide === 0 ? 0.3 : 1,
                                     cursor: currentSlide === 0 ? 'not-allowed' : 'pointer',
                                 }}
                             >
@@ -235,9 +236,9 @@ const OnboardingCarousel = ({ onComplete }) => {
                                 style={{
                                     background: isLastSlide
                                         ? `linear-gradient(135deg, #6366f1, #8b5cf6)`
-                                        : 'rgba(255,255,255,0.08)',
-                                    border: `1px solid ${isLastSlide ? 'rgba(139, 92, 246, 0.5)' : 'rgba(255,255,255,0.12)'}`,
-                                    color: 'white',
+                                        : 'var(--surface-glass)',
+                                    border: `1px solid ${isLastSlide ? 'rgba(139, 92, 246, 0.5)' : 'var(--border)'}`,
+                                    color: isLastSlide ? 'white' : 'var(--text-primary)',
                                     boxShadow: isLastSlide ? '0 8px 32px rgba(99, 102, 241, 0.4)' : 'none',
                                 }}
                             >
@@ -250,8 +251,7 @@ const OnboardingCarousel = ({ onComplete }) => {
                         {!isLastSlide && (
                             <button
                                 onClick={onComplete}
-                                className="w-full mt-5 text-[11px] font-bold hover:text-white transition-colors uppercase tracking-[0.2em]"
-                                style={{ color: 'rgba(255,255,255,0.3)' }}
+                                className="w-full mt-5 text-[11px] font-bold hover:text-[var(--text-primary)] transition-colors uppercase tracking-[0.2em] text-[var(--text-secondary)] opacity-50"
                             >
                                 Skip Introduction
                             </button>
@@ -260,8 +260,8 @@ const OnboardingCarousel = ({ onComplete }) => {
                 </div>
 
                 {/* Brand watermark */}
-                <p className="text-center mt-5 text-[11px] font-black tracking-[0.3em] uppercase" style={{ color: 'rgba(255,255,255,0.15)' }}>
-                    STARDUST
+                <p className="text-center mt-5 text-[11px] font-black tracking-[0.4em] uppercase text-[var(--text-secondary)] opacity-20">
+                    STARDUST VAULT
                 </p>
             </motion.div>
         </motion.div>

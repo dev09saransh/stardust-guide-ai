@@ -21,22 +21,30 @@ const AppContent = () => {
     setToast
   } = useAuth();
 
-  // Onboarding logic: check sessionStorage to show only once per session
+  // Onboarding logic: check localStorage to show only once per device/user
   const [sessionOnboarded, setSessionOnboarded] = React.useState(
-    sessionStorage.getItem('stardust_session_onboarded') === 'true'
+    localStorage.getItem('stardust_onboarded') === 'true'
   );
 
+  // Sync with user onboarding status from backend
+  React.useEffect(() => {
+    if (isOnboarded) {
+      localStorage.setItem('stardust_onboarded', 'true');
+      setSessionOnboarded(true);
+    }
+  }, [isOnboarded]);
+
   const handleCompleteOnboarding = () => {
-    sessionStorage.setItem('stardust_session_onboarded', 'true');
+    localStorage.setItem('stardust_onboarded', 'true');
     setSessionOnboarded(true);
-    if (!isOnboarded) completeOnboarding();
+    if (!isOnboarded && isAuthenticated) completeOnboarding();
   };
 
   const shouldBlur = !sessionOnboarded;
 
   // Admin route interception
   const dashboardUser = React.useMemo(() => (
-    isAuthenticated ? { token, user } : { token: null, user: { name: 'Guest', role: 'GUEST' } }
+    isAuthenticated ? { token, user } : { token: null, user: { name: 'Guest', role: 'GUEST', has_completed_onboarding: false } }
   ), [isAuthenticated, token, user]);
 
   if (isAuthenticated && user?.role === 'ADMIN') {
@@ -51,6 +59,7 @@ const AppContent = () => {
           user={dashboardUser}
           onLogout={logout}
           isGuest={!isAuthenticated}
+          isSessionOnboarded={sessionOnboarded}
         />
       </div>
 

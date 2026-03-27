@@ -13,6 +13,8 @@ import { LayoutDashboard, PlusCircle, Bell, Settings, UserCircle, PartyPopper, A
  *   onComplete — optional callback after tour finishes
  */
 
+const API = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
+
 const TOUR_STEPS = [
     {
         target: '#dashboard-section',
@@ -57,43 +59,45 @@ const CustomTooltip = ({
     <div
         {...tooltipProps}
         style={{
-            background: '#ffffff',
+            background: 'var(--surface)',
             borderRadius: '16px',
-            padding: '28px 24px 20px',
-            maxWidth: '380px',
-            boxShadow: '0 20px 60px rgba(88, 28, 135, 0.18), 0 4px 16px rgba(0,0,0,0.08)',
-            border: '1px solid rgba(147, 51, 234, 0.15)',
-            fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+            padding: '16px 14px 12px',
+            maxWidth: '320px',
+            width: 'calc(100vw - 32px)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            border: '1px solid var(--border)',
+            fontFamily: "'Inter', sans-serif",
+            margin: '0 8px',
         }}
     >
         {/* Progress indicator */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', gap: '5px' }}>
                 {Array.from({ length: size }, (_, i) => (
                     <div
                         key={i}
                         style={{
-                            width: i === index ? '24px' : '8px',
-                            height: '8px',
-                            borderRadius: '4px',
-                            background: i === index ? '#7c3aed' : i < index ? '#c4b5fd' : '#e5e7eb',
+                            width: i === index ? '20px' : '6px',
+                            height: '6px',
+                            borderRadius: '3px',
+                            background: i === index ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
                             transition: 'all 0.3s ease',
                         }}
                     />
                 ))}
             </div>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                Step {index + 1} of {size}
+            <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em', textTransform: 'uppercase', opacity: 0.6 }}>
+                Step {index + 1} / {size}
             </span>
         </div>
 
         {/* Title */}
         {step.title && (
             <h3 style={{
-                fontSize: '18px',
-                fontWeight: 800,
-                color: '#1f2937',
-                margin: '0 0 8px 0',
+                fontSize: '16px',
+                fontWeight: 900,
+                color: 'var(--text-primary)',
+                margin: '0 0 6px 0',
                 lineHeight: 1.3,
             }}>
                 {step.title}
@@ -102,10 +106,10 @@ const CustomTooltip = ({
 
         {/* Description */}
         <p style={{
-            fontSize: '14px',
-            color: '#6b7280',
-            lineHeight: 1.6,
-            margin: '0 0 20px 0',
+            fontSize: '13px',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.5,
+            margin: '0 0 16px 0',
             fontWeight: 500,
         }}>
             {step.content}
@@ -169,29 +173,29 @@ const CustomTooltip = ({
     </div>
 );
 
-const OnboardingTour = ({ user, onComplete, onStepChange }) => {
+const OnboardingTour = ({ user, isSessionOnboarded, onComplete, onStepChange }) => {
     const [run, setRun] = useState(false);
     const [stepIndex, setStepIndex] = useState(0);
     const { openAuthModal, isAuthenticated } = useAuth();
 
     useEffect(() => {
-        const carouselComplete = sessionStorage.getItem('stardust_session_onboarded') === 'true';
-        const sessionTourSeen = sessionStorage.getItem('stardust_tour_seen') === 'true';
+        const carouselComplete = localStorage.getItem('stardust_onboarded') === 'true' || isSessionOnboarded;
+        const sessionTourSeen = localStorage.getItem('stardust_tour_seen') === 'true';
 
-        // Auto-start tour ONLY IF carousel is complete AND tour hasn't been seen in this session
+        // Auto-start tour ONLY IF carousel is complete AND tour hasn't been seen yet
         if (carouselComplete && !sessionTourSeen && (!user?.user || !user.user.has_completed_onboarding)) {
             const timer = setTimeout(() => setRun(true), 800);
             return () => clearTimeout(timer);
         }
-    }, [user]);
+    }, [user, isSessionOnboarded]);
 
     const markOnboardingComplete = useCallback(async () => {
         localStorage.setItem('stardust_onboarded', 'true');
-        sessionStorage.setItem('stardust_tour_seen', 'true');
+        localStorage.setItem('stardust_tour_seen', 'true');
         if (user?.token) {
             try {
                 await axios.post(
-                    'http://16.170.248.196:5001/api/auth/complete-onboarding',
+                    `${API}/auth/complete-onboarding`,
                     {},
                     { headers: { Authorization: `Bearer ${user.token}` } }
                 );

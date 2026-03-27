@@ -9,10 +9,15 @@ import {
     Mail,
     ShieldCheck,
     ArrowRight,
-    RefreshCw
+    RefreshCw,
+    MessageSquare,
+    Download
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
+
+const API = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
 
 const AdminPanel = ({ user, onBackToApp }) => {
     const { showToast } = useAuth();
@@ -24,12 +29,57 @@ const AdminPanel = ({ user, onBackToApp }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successionRequests, setSuccessionRequests] = useState([]);
+    const [feedbacks, setFeedbacks] = useState([]);
+
+    const fetchFeedbacks = useCallback(async () => {
+        const activeToken = user?.token || localStorage.getItem('stardust_token');
+        setLoading(true);
+        try {
+            const res = await axios.get(`${API}/feedback/admin`, {
+                headers: { Authorization: `Bearer ${activeToken}` }
+            });
+            setFeedbacks(res.data);
+            setError('');
+        } catch (err) {
+            setError(`Failed to fetch feedbacks: ${err.response?.data?.message || err.message}`);
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.token]);
+
+    const handleExportExcel = () => {
+        if (feedbacks.length === 0) {
+            showToast('No feedback data to export', 'error');
+            return;
+        }
+
+        const dataToExport = feedbacks.map(f => ({
+            'Feedback ID': f.id,
+            'User ID': f.user_id,
+            'Name': f.full_name,
+            'Email': f.email,
+            'Mobile': f.mobile,
+            'Q1: Overall Exp': f.q1_rating,
+            'Q2: Navigation': f.q2_rating,
+            'Q3: Design': f.q3_rating,
+            'Q4: Safety': f.q4_rating,
+            'Q5: Features': f.q5_rating,
+            'Additional Comments': f.text_feedback,
+            'Submitted At': new Date(f.created_at).toLocaleString()
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Customer Feedbacks");
+        XLSX.writeFile(wb, `Stardust_Feedback_Report_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+        showToast('Feedback exported successfully', 'success');
+    };
 
     const fetchUsers = useCallback(async () => {
         const activeToken = user?.token || localStorage.getItem('stardust_token');
         setLoading(true);
         try {
-            const res = await axios.get('http://16.170.248.196:5001/api/admin/users', {
+            const res = await axios.get(`${API}/admin/users`, {
                 headers: { Authorization: `Bearer ${activeToken}` }
             });
             setUsers(res.data);
@@ -49,7 +99,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
         }
         setLoading(true);
         try {
-            const res = await axios.get('http://16.170.248.196:5001/api/admin/stats', {
+            const res = await axios.get(`${API}/admin/stats`, {
                 headers: { Authorization: `Bearer ${activeToken}` }
             });
             setStats(res.data);
@@ -65,7 +115,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
         const activeToken = user?.token || localStorage.getItem('stardust_token');
         setLoading(true);
         try {
-            const res = await axios.get('http://16.170.248.196:5001/api/admin/successions/pending', {
+            const res = await axios.get(`${API}/admin/successions/pending`, {
                 headers: { Authorization: `Bearer ${activeToken}` }
             });
             setSuccessionRequests(res.data);
@@ -80,13 +130,14 @@ const AdminPanel = ({ user, onBackToApp }) => {
         if (activeAdminTab === 'users') fetchUsers();
         if (activeAdminTab === 'dashboard') fetchStats();
         if (activeAdminTab === 'successions') fetchSuccessions();
-    }, [activeAdminTab, fetchUsers, fetchStats, fetchSuccessions]);
+        if (activeAdminTab === 'feedback') fetchFeedbacks();
+    }, [activeAdminTab, fetchUsers, fetchStats, fetchSuccessions, fetchFeedbacks]);
 
     const handleDeleteUser = async (userId) => {
         if (!window.confirm('CRITICAL ACTION: Are you sure you want to PERMANENTLY delete this user and all their vault assets?')) return;
         const activeToken = user?.token || localStorage.getItem('stardust_token');
         try {
-            await axios.delete(`http://16.170.248.196:5001/api/admin/users/${userId}`, {
+            await axios.delete(`${API}/admin/users/${userId}`, {
                 headers: { Authorization: `Bearer ${activeToken}` }
             });
             fetchUsers();
@@ -100,7 +151,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
     const handleSuccessionAction = async (requestId, action) => {
         const activeToken = user?.token || localStorage.getItem('stardust_token');
         try {
-            await axios.post('http://16.170.248.196:5001/api/admin/successions/handle', {
+            await axios.post(`${API}/admin/successions/handle`, {
                 requestId,
                 action
             }, {
@@ -299,7 +350,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
                                             </div>
                                         </div>
                                         <div className="w-full md:w-64 flex flex-col gap-3">
-                                            <a href={`http://16.170.248.196:5001${req.proof_url}`} target="_blank" rel="noreferrer" className="w-full py-3 bg-slate-900 text-white rounded-xl flex items-center justify-center space-x-2 text-xs font-bold uppercase tracking-widest">
+                                            <a href={`${API.replace('/api', '')}${req.proof_url}`} target="_blank" rel="noreferrer" className="w-full py-3 bg-slate-900 text-white rounded-xl flex items-center justify-center space-x-2 text-xs font-bold uppercase tracking-widest">
                                                 <FileSearch size={16} /> <span>Review Evidence</span>
                                             </a>
                                             <div className="flex gap-2">
@@ -309,6 +360,85 @@ const AdminPanel = ({ user, onBackToApp }) => {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            case 'feedback':
+                return (
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">Customer Feedback</h2>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Found {feedbacks.length} responses</p>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                                <button onClick={handleExportExcel} className="p-2 px-4 bg-emerald-100 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all text-xs font-bold flex items-center shadow-sm">
+                                    <Download size={14} className="mr-2" /> Download Excel
+                                </button>
+                                <button onClick={fetchFeedbacks} className="p-2 bg-gray-100 text-gray-600 rounded-xl hover:text-blue-600 transition-all font-bold">
+                                    <RefreshCw size={16} />
+                                </button>
+                            </div>
+                        </div>
+                        {error && (
+                            <div className="p-4 bg-red-50 border border-red-100 rounded-xl mb-6">
+                                <p className="text-xs font-bold text-red-600">{error}</p>
+                            </div>
+                        )}
+                        {feedbacks.length === 0 && !loading ? (
+                            <div className="card py-20 bg-gray-50 border-dashed border-2 flex flex-col items-center justify-center text-center">
+                                <MessageSquare size={48} className="text-gray-200 mb-4" />
+                                <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No feedback received yet</p>
+                            </div>
+                        ) : (
+                            <div className="card overflow-hidden border-none shadow-xl">
+                                <table className="w-full text-left">
+                                    <thead className="bg-[#1a1a1a] text-white">
+                                        <tr>
+                                            <th className="px-6 py-4 text-[9px] font-bold uppercase tracking-widest opacity-60">Customer</th>
+                                            <th className="px-6 py-4 text-[9px] font-bold uppercase tracking-widest opacity-60">Overall</th>
+                                            <th className="px-6 py-4 text-[9px] font-bold uppercase tracking-widest opacity-60">Features</th>
+                                            <th className="px-6 py-4 text-[9px] font-bold uppercase tracking-widest opacity-60 w-1/3">Comments</th>
+                                            <th className="px-6 py-4 text-[9px] font-bold uppercase tracking-widest opacity-60 text-right">Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 bg-white">
+                                        {feedbacks.map(f => (
+                                            <tr key={f.id} className="hover:bg-blue-50/30 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center space-x-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                                                            {f.full_name?.charAt(0) || '?'}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-bold text-gray-900">{f.full_name}</span>
+                                                            <span className="text-[9px] font-mono text-gray-400">{f.email}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center space-x-1 text-amber-500">
+                                                        <span className="text-sm font-bold text-gray-900 mr-2">{f.q1_rating}/5</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center space-x-1 text-amber-500">
+                                                        <span className="text-sm font-bold text-gray-900 mr-2">{f.q5_rating}/5</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <p className="text-xs text-gray-600 font-medium truncate max-w-xs" title={f.text_feedback}>
+                                                        {f.text_feedback || <span className="text-gray-400 italic">No comments</span>}
+                                                    </p>
+                                                </td>
+                                                <td className="px-6 py-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                                    {new Date(f.created_at).toLocaleDateString()}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>
@@ -334,6 +464,7 @@ const AdminPanel = ({ user, onBackToApp }) => {
                         { id: 'dashboard', label: 'Monitor Dashboard', icon: <Activity size={18} /> },
                         { id: 'users', label: 'User Directory', icon: <Users size={18} /> },
                         { id: 'successions', label: 'Succession Claims', icon: <ShieldAlert size={18} /> },
+                        { id: 'feedback', label: 'Customer Feedback', icon: <MessageSquare size={18} /> },
                         { id: 'audit', label: 'System Logs', icon: <FileSearch size={18} /> },
                     ].map(item => (
                         <button key={item.id} onClick={() => setActiveAdminTab(item.id)}

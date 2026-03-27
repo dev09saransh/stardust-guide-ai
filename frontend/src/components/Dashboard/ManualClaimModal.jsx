@@ -3,14 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, ArrowRight, Key, Mail, Smartphone, CheckCircle2, Loader2, X, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
+const API = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
+
 const ManualClaimModal = ({ isOpen, onClose, onVerified, user }) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [formData, setFormData] = useState({
-        ownerEmail: '',
+        ownerMobile: '',
         claimCode: '',
-        verificationMethod: 'email'
+        verificationMethod: 'phone'
     });
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
 
@@ -40,8 +42,8 @@ const ManualClaimModal = ({ isOpen, onClose, onVerified, user }) => {
         try {
             // Mocking the API call for now to align with existing frontend flows
             // In a real scenario, this would call the backend to verify the claim code and email
-            const response = await axios.post('http://16.170.248.196:5001/api/succession/initiate-claim', {
-                ownerEmail: formData.ownerEmail,
+            const response = await axios.post(`${API}/succession/initiate-claim`, {
+                ownerMobile: formData.ownerMobile,
                 claimCode: formData.claimCode
             });
 
@@ -63,8 +65,8 @@ const ManualClaimModal = ({ isOpen, onClose, onVerified, user }) => {
         const code = otp.join('');
 
         try {
-            const response = await axios.post('http://16.170.248.196:5001/api/succession/verify-claim-otp', {
-                ownerEmail: formData.ownerEmail,
+            const response = await axios.post(`${API}/succession/verify-claim-otp`, {
+                ownerMobile: formData.ownerMobile,
                 otp: code
             });
 
@@ -117,22 +119,22 @@ const ManualClaimModal = ({ isOpen, onClose, onVerified, user }) => {
                                     </div>
                                     <h2 className="text-3xl font-black text-[var(--text-primary)] tracking-tight">Vault Recovery</h2>
                                     <p className="text-[var(--text-secondary)] font-medium leading-relaxed">
-                                        Enter the owner's email and your unique claim code to initiate the succession protocol.
+                                        Enter the owner's phone number and your unique claim code to initiate the succession protocol.
                                     </p>
                                 </div>
 
                                 <form onSubmit={initiateClaim} className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Owner's Primary Email</label>
+                                        <label className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Owner's Primary Phone</label>
                                         <div className="relative group">
-                                            <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
+                                            <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
                                             <input
-                                                type="email"
-                                                name="ownerEmail"
+                                                type="tel"
+                                                name="ownerMobile"
                                                 required
-                                                placeholder="owner@example.com"
+                                                placeholder="e.g. 9876543210"
                                                 className="input-field pl-14"
-                                                value={formData.ownerEmail}
+                                                value={formData.ownerMobile}
                                                 onChange={handleInputChange}
                                             />
                                         </div>

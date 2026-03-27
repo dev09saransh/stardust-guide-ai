@@ -4,7 +4,7 @@ import { User, Calendar, Users, ArrowRight, Check, X } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'http://16.170.248.196:5001/api';
+const API = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
 
 const steps = [
     { id: 'name', emoji: '👋', question: "What's your full name?", subtitle: 'This will appear across your vault' },
@@ -17,7 +17,7 @@ const ProfileWizard = ({ onComplete }) => {
     const [currentStep, setCurrentStep] = useState(0);
     const [form, setForm] = useState({
         full_name: '', gender: '', dob: '', address: '',
-        nominee_name: '', nominee_email: '', nominee_mobile: '',
+        nominee_name: '', nominee_mobile: '',
         nominee_country_code: '+91', nominee_relationship: '',
     });
     const [loading, setLoading] = useState(false);
@@ -64,7 +64,6 @@ const ProfileWizard = ({ onComplete }) => {
             try {
                 await axios.post(`${API}/auth/nominee`, {
                     full_name: form.nominee_name,
-                    email: form.nominee_email || undefined,
                     mobile: form.nominee_mobile ? `${form.nominee_country_code}${form.nominee_mobile}` : undefined,
                     relationship: form.nominee_relationship || undefined,
                 }, { headers: authHeaders });
@@ -209,17 +208,10 @@ const ProfileWizard = ({ onComplete }) => {
                                             <option value="Other" style={{ background: '#1a1a2e' }}>Other</option>
                                         </select>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                        <div>
-                                            <label style={labelStyle}>Email</label>
-                                            <input type="email" placeholder="Email" style={inputStyle}
-                                                value={form.nominee_email} onChange={(e) => setForm({ ...form, nominee_email: e.target.value })} />
-                                        </div>
-                                        <div>
-                                            <label style={labelStyle}>Phone</label>
-                                            <input type="tel" placeholder="Phone" style={inputStyle}
-                                                value={form.nominee_mobile} onChange={(e) => setForm({ ...form, nominee_mobile: e.target.value })} />
-                                        </div>
+                                    <div>
+                                        <label style={labelStyle}>Phone</label>
+                                        <input type="tel" placeholder="Phone" style={inputStyle}
+                                            value={form.nominee_mobile} onChange={(e) => setForm({ ...form, nominee_mobile: e.target.value })} />
                                     </div>
                                 </div>
                             )}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Key, Mail, Lock, AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, X } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://16.170.248.196:5001/api/auth';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api/auth';
 
 const ForgotPasswordPage = ({ onBackToLogin }) => {
     const [step, setStep] = useState(1); // 1: Identify, 2: OTP, 3: Reset, 4: Success
@@ -112,7 +112,7 @@ const ForgotPasswordPage = ({ onBackToLogin }) => {
                         {step === 4 && 'All Set!'}
                     </h2>
                     <p className="text-[var(--text-secondary)]">
-                        {step === 1 && 'Enter your registered email or phone to reset access.'}
+                        {step === 1 && 'Enter your registered mobile number to reset access.'}
                         {step === 2 && `We sent a 6-digit OTP to your WhatsApp ending in ${mobileSnippet}`}
                         {step === 3 && 'Your new password must be at least 8 characters long.'}
                         {step === 4 && 'Your password has been successfully updated.'}
@@ -131,13 +131,13 @@ const ForgotPasswordPage = ({ onBackToLogin }) => {
                             className="space-y-6"
                         >
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-[var(--text-secondary)] ml-1">Identity Identifier</label>
+                                <label className="text-sm font-bold text-[var(--text-secondary)] ml-1">Mobile Number</label>
                                 <div className="relative group">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-blue-600 transition-colors" size={20} />
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-blue-600 transition-colors" size={20} />
                                     <input
                                         type="text"
                                         required
-                                        placeholder="Email or Mobile"
+                                        placeholder="Enter registered mobile"
                                         className="input-field pl-12 shadow-sm"
                                         value={identifier}
                                         onChange={(e) => setIdentifier(e.target.value)}

@@ -1,6 +1,6 @@
 const db = require('../config/db');
 const { sendEmailOTP, sendEmail } = require('./emailService'); // Reusing email infrastructure
-const { sendWhatsAppOTP, sendWhatsApp } = require('./msg91Service'); // Reusing msg91 infrastructure
+const { sendWhatsAppOTP, sendWhatsAppTemplate } = require('./msg91Service'); // Reusing msg91 infrastructure
 const crypto = require('crypto');
 
 /**
@@ -72,8 +72,10 @@ class InactivityService {
                 await sendEmail(user.email, emailSubject, emailHtml);
 
                 // 2. Send WhatsApp Reminder
-                const waMessage = `✨ [Stardust Security] Hi ${user.full_name}. This is your scheduled activity pulse. To keep your vault private and prevent legacy transfer, please log in at: ${loginUrl}`;
-                await sendWhatsApp(user.mobile, waMessage);
+                await sendWhatsAppTemplate(user.mobile, 'stardust_security_pulse_v2', {
+                    owner_name: user.full_name,
+                    app_url: loginUrl
+                });
 
                 // Increment reminder count
                 await db.execute(
@@ -157,26 +159,12 @@ class InactivityService {
                 `;
                 await sendEmail(nominee.email, nomineeSubject, nomineeHtml);
 
-                // 2. Send Nominee WhatsApp (Production Ready & Descriptive)
-                const nomineeWAMsg =
-                    `✨ Hello from Stardust - Asset Management & Succession Platform.
-
-We are reaching out to you on behalf of ${user.user_name}. You have been appointed as their official Legacy Contact. 
-
-Due to extended inactivity on ${user.user_name}'s vault, we are initiating our secure succession protocol. If the account owner is no longer with us or unretrievable, you are authorized to begin the process of claiming their digital assets and financial legacy.
-
-*Steps to Proceed:*
-1. Verify your identity.
-2. Upload proof (ID/Death Certificate).
-3. Wait for Admin approval.
-
-Initiate the legacy transfer here: ${successionLink}
-
-Stardust ensures your loved ones are never left without access to vital financial information.
--------------------
-Powered by Stardust`;
-
-                await sendWhatsApp(nominee.mobile, nomineeWAMsg);
+                // 2. Send Nominee WhatsApp
+                await sendWhatsAppTemplate(nominee.mobile, 'stardust_succession_notice', {
+                    nominee_name: nominee.full_name,
+                    owner_name: user.user_name,
+                    verification_url: successionLink
+                });
 
                 console.log(`Link: ${successionLink}`);
             }

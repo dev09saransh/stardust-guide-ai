@@ -7,7 +7,7 @@ import {
 import axios from 'axios';
 
 const getBaseUrl = () => {
-  const raw = process.env.REACT_APP_API_URL || 'http://16.170.248.196:5001/api';
+  const raw = process.env.REACT_APP_API_URL || 'http://13.126.194.9:5001/api';
   return raw.endsWith('/auth') ? raw : `${raw}/auth`;
 };
 const API = getBaseUrl();
@@ -34,8 +34,18 @@ const RecoverAccountPage = ({ onBackToLogin, isLite = false }) => {
 
     // Step 5: Account update
     const [resetToken, setResetToken] = useState('');
-    const [editForm, setEditForm] = useState({ email: '', mobile: '', password: '', confirmPassword: '' });
+    const [editForm, setEditForm] = useState({ mobile: '', password: '', confirmPassword: '' });
     const [showPassword, setShowPassword] = useState(false);
+    const [countryCode, setCountryCode] = useState('+91');
+    const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+
+    const countryCodes = [
+        { code: '+91', name: 'India' },
+        { code: '+1', name: 'USA' },
+        { code: '+44', name: 'UK' },
+        { code: '+971', name: 'UAE' },
+        { code: '+61', name: 'Australia' },
+    ];
 
     const totalSteps = 6;
 
@@ -54,7 +64,7 @@ const RecoverAccountPage = ({ onBackToLogin, isLite = false }) => {
             const res = await axios.post(`${API}/recover/lookup`, { identifier });
             setUserId(res.data.userId);
             // Filter out 'security' from methods — it's now mandatory after OTP
-            setMethods(res.data.methods.filter(m => m.id !== 'security'));
+            setMethods(res.data.methods.filter(m => m.id !== 'security' && m.id !== 'email'));
             setStep(2);
         } catch (err) {
             setError(err.response?.data?.message || 'Account not found.');
@@ -115,7 +125,6 @@ const RecoverAccountPage = ({ onBackToLogin, isLite = false }) => {
             });
             setResetToken(res.data.resetToken);
             setEditForm({
-                email: res.data.currentEmail || '',
                 mobile: res.data.currentMobile || '',
                 password: '',
                 confirmPassword: ''
@@ -142,10 +151,10 @@ const RecoverAccountPage = ({ onBackToLogin, isLite = false }) => {
         }
         setLoading(true);
         try {
+            const fullPhone = editForm.mobile ? `${countryCode}${editForm.mobile.replace(/\D/g, '')}` : undefined;
             await axios.put(`${API}/recover/update-account`, {
                 resetToken,
-                email: editForm.email || undefined,
-                mobile: editForm.mobile || undefined,
+                mobile: fullPhone,
                 password: editForm.password || undefined
             });
             setStep(6);
@@ -337,10 +346,48 @@ const RecoverAccountPage = ({ onBackToLogin, isLite = false }) => {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">New Contact Link</label>
-                                        <div className="relative group">
-                                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
-                                            <input type="tel" placeholder="Update Phone (Optional)" className="input-field pl-12 py-2.5"
-                                                value={editForm.mobile} onChange={e => setEditForm({ ...editForm, mobile: e.target.value })} />
+                                        <div className="flex gap-2 relative">
+                                            <div className="relative w-[80px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                                                    className="w-full px-2 py-2 bg-[var(--surface-glass)] border border-[var(--border)] rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1 transition-all"
+                                                >
+                                                    {countryCode}
+                                                </button>
+                                                <AnimatePresence>
+                                                    {showCountryDropdown && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95 }}
+                                                            animate={{ opacity: 1, scale: 1 }}
+                                                            exit={{ opacity: 0, scale: 0.95 }}
+                                                            className="absolute top-full left-0 mt-2 w-32 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl z-50 overflow-hidden p-1"
+                                                        >
+                                                            {countryCodes.map(c => (
+                                                                <button
+                                                                    key={c.code}
+                                                                    type="button"
+                                                                    onClick={() => { setCountryCode(c.code); setShowCountryDropdown(false); }}
+                                                                    className={`w-full text-left px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all flex justify-between items-center ${countryCode === c.code ? 'bg-[var(--primary)] text-white' : 'text-[var(--text-primary)] hover:bg-[var(--surface-glass)]'}`}
+                                                                >
+                                                                    <span>{c.name}</span>
+                                                                    <span className="opacity-60">{c.code}</span>
+                                                                </button>
+                                                            ))}
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                            <div className="relative flex-1 group">
+                                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={18} />
+                                                <input
+                                                    type="tel"
+                                                    placeholder="98765 43210"
+                                                    className="input-field pl-12 py-2.5"
+                                                    value={editForm.mobile}
+                                                    onChange={e => setEditForm({ ...editForm, mobile: e.target.value })}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 gap-4">
@@ -541,20 +588,51 @@ const RecoverAccountPage = ({ onBackToLogin, isLite = false }) => {
                             {/* ─── STEP 5: UPDATE ACCOUNT ─── */}
                             {step === 5 && (
                                 <motion.form key="s5" variants={anim} initial="hidden" animate="visible" exit="exit" onSubmit={handleUpdate} className="space-y-6">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">New Digital Mail</label>
-                                        <div className="relative group">
-                                            <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
-                                            <input type="email" placeholder="Update Email (Optional)" className="input-field pl-14"
-                                                value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
-                                        </div>
-                                    </div>
+                                    <div className="space-y-4">
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider ml-1">New Contact Link</label>
-                                        <div className="relative group">
-                                            <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
-                                            <input type="tel" placeholder="Update Phone (Optional)" className="input-field pl-14"
-                                                value={editForm.mobile} onChange={e => setEditForm({ ...editForm, mobile: e.target.value })} />
+                                        <div className="flex gap-2 relative">
+                                            <div className="relative w-[90px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                                                    className="w-full px-4 py-[13px] bg-[var(--surface-glass)] border border-[var(--border)] rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all hover:bg-[var(--surface)]"
+                                                >
+                                                    {countryCode}
+                                                </button>
+                                                <AnimatePresence>
+                                                    {showCountryDropdown && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95 }}
+                                                            animate={{ opacity: 1, scale: 1 }}
+                                                            exit={{ opacity: 0, scale: 0.95 }}
+                                                            className="absolute top-full left-0 mt-2 w-48 bg-[var(--surface)] border border-[var(--border)] rounded-[2rem] shadow-2xl z-50 overflow-hidden p-2"
+                                                        >
+                                                            {countryCodes.map(c => (
+                                                                <button
+                                                                    key={c.code}
+                                                                    type="button"
+                                                                    onClick={() => { setCountryCode(c.code); setShowCountryDropdown(false); }}
+                                                                    className={`w-full text-left px-4 py-3 rounded-2xl text-sm font-bold transition-all flex justify-between items-center ${countryCode === c.code ? 'bg-[var(--primary)] text-white' : 'text-[var(--text-primary)] hover:bg-[var(--surface-glass)]'}`}
+                                                                >
+                                                                    <span>{c.name}</span>
+                                                                    <span className="opacity-60">{c.code}</span>
+                                                                </button>
+                                                            ))}
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                            <div className="relative flex-1 group">
+                                                <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] group-focus-within:text-[var(--primary)] transition-colors" size={20} />
+                                                <input
+                                                    type="tel"
+                                                    placeholder="98765 43210"
+                                                    className="input-field pl-14"
+                                                    value={editForm.mobile}
+                                                    onChange={e => setEditForm({ ...editForm, mobile: e.target.value })}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 gap-4">
@@ -578,6 +656,7 @@ const RecoverAccountPage = ({ onBackToLogin, isLite = false }) => {
                                                     value={editForm.confirmPassword} onChange={e => setEditForm({ ...editForm, confirmPassword: e.target.value })} />
                                             </div>
                                         </div>
+                                    </div>
                                     </div>
                                     <p className="text-[10px] text-[var(--text-secondary)] text-center uppercase tracking-widest opacity-50 font-bold">Null values will retain legacy parameters.</p>
                                     {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-center space-x-3 text-sm font-bold"><AlertCircle size={20} /><span>{error}</span></div>}
