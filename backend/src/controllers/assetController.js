@@ -1,8 +1,9 @@
 const db = require('../config/db');
 const { encrypt, decrypt } = require('../utils/crypto');
 
-// @desc    Add a new asset
-// @route   POST /api/assets
+/**
+ * Add a new asset
+ */
 const addAsset = async (req, res) => {
     const { category, title, metadata, is_encrypted = 1 } = req.body;
     const userId = req.user.id;
@@ -15,45 +16,23 @@ const addAsset = async (req, res) => {
         );
 
         res.status(201).json({
-            message: 'Asset added to vault successfully',
+            message: 'Asset added successfully',
             assetId: result.insertId
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Error adding asset to vault' });
+        res.status(500).json({ message: 'Error adding asset' });
     }
 };
 
-// @desc    Get all assets for a user
-// @route   GET /api/assets
+/**
+ * Get all assets for the authenticated user
+ */
 const getAssets = async (req, res) => {
-    let userId = req.user.id;
+    const userId = req.user.id;
     const { category } = req.query;
-    const vaultContext = req.header('x-vault-context');
 
-    console.log(`[GET ASSETS] Context: ${vaultContext}, User: ${req.user.id}`);
     try {
-        if (vaultContext && vaultContext !== 'null') {
-            const targetUserId = parseInt(vaultContext);
-            // Verify access: current user must be an explicitly linked nominee for targetUserId
-            const [accessRows] = await db.execute(`
-                SELECT n.nominee_id 
-                FROM nominees n 
-                WHERE n.user_id = ? AND n.linked_user_id = ?
-            `, [targetUserId, req.user.id]);
-
-            console.log(`[GET ASSETS] targetUserId=${targetUserId}, req.user.id=${req.user.id}, accessRows.length=${accessRows.length}`);
-
-            if (accessRows.length > 0) {
-                userId = targetUserId;
-            } else if (targetUserId !== req.user.id) {
-                console.log(`[GET ASSETS] Unauthorized. targetUserId !== req.user.id`);
-                return res.status(403).json({ message: 'Unauthorized access to this vault' });
-            }
-        }
-
-        console.log(`[GET ASSETS] Preparing query for userId=${userId}, category=${category}`);
-
         let query = 'SELECT * FROM assets WHERE user_id = ?';
         let params = [userId];
 
@@ -66,37 +45,34 @@ const getAssets = async (req, res) => {
 
         const [rows] = await db.execute(query, params);
 
-        // Decrypt and Parse metadata JSON
         const assets = rows.map(asset => {
             let metadataStr = asset.metadata;
-            // Attempt decryption
+            // Decrypt if it follows the encrypted format (iv:data)
             if (metadataStr && metadataStr.includes(':')) {
                 metadataStr = decrypt(metadataStr);
             }
             
             let parsedMetadata = {};
             try {
-                parsedMetadata = typeof metadataStr === 'string' ? JSON.parse(metadataStr) : metadataStr;
+                parsedMetadata = JSON.parse(metadataStr);
             } catch (pErr) {
                 console.error('[PARSE ERROR] Asset ID:', asset.asset_id, pErr.message);
                 parsedMetadata = { error: 'Failed to parse metadata', raw: metadataStr };
             }
 
-            return {
-                ...asset,
-                metadata: parsedMetadata
-            };
+            return { ...asset, metadata: parsedMetadata };
         });
 
         res.json(assets);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Error fetching vault assets' });
+        res.status(500).json({ message: 'Error fetching assets' });
     }
 };
 
-// @desc    Update an asset
-// @route   PUT /api/assets/:id
+/**
+ * Update an existing asset
+ */
 const updateAsset = async (req, res) => {
     const assetId = req.params.id;
     const { category, title, metadata, is_encrypted } = req.body;
@@ -120,8 +96,9 @@ const updateAsset = async (req, res) => {
     }
 };
 
-// @desc    Delete an asset
-// @route   DELETE /api/assets/:id
+/**
+ * Delete an asset
+ */
 const deleteAsset = async (req, res) => {
     const assetId = req.params.id;
     const userId = req.user.id;

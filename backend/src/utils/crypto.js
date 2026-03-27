@@ -7,7 +7,7 @@ const IV_LENGTH = 16;
 function getEncryptionKey() {
     const key = process.env.ENCRYPTION_KEY;
     if (!key) {
-        console.error('❌ [FATAL]: ENCRYPTION_KEY missing in process.env');
+        console.error('ENCRYPTION_KEY missing in process.env');
         throw new Error('ENCRYPTION_KEY missing');
     }
     return Buffer.from(key, 'hex');

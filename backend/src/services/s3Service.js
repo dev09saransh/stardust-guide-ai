@@ -10,7 +10,7 @@ const s3Client = new S3Client({
     },
 });
 
-const uploadFile = async (fileBuffer, fileName, folder = 'legal-documents', mimetype = 'application/octet-stream') => {
+const uploadFile = async (fileBuffer, fileName, folder = 'app-uploads', mimetype = 'application/octet-stream') => {
     const key = `${folder}/${fileName}`;
     const params = {
         Bucket: process.env.AWS_S3_BUCKET,
@@ -58,8 +58,4 @@ const deleteFile = async (key) => {
     }
 };
 
-module.exports = {
-    uploadFile,
-    getPresignedUrl,
-    deleteFile
-};
+module.exports = { uploadFile, getPresignedUrl, deleteFile };
