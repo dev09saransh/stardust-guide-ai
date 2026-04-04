@@ -241,24 +241,25 @@ nav .container {
 
 .trust-node {
   position: absolute;
-  width: 90px;
-  height: 90px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   background: white;
   border: 4px solid white;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
   overflow: hidden;
   cursor: pointer;
-  z-index: 5;
-  transition: border-color 0.4s, transform 0.4s;
+  z-index: 10;
+  transition: all 0.4s ease;
   
   /* Path Animation */
   offset-path: path("M1300,200 C1000,350 400,50 0,200");
-  animation: moveAlongPath 30s linear infinite;
+  offset-rotate: 0deg; /* Keep upright */
+  animation: moveAlongPath 40s linear infinite;
 }
 
 .trust-node:hover {
-  transform: scale(1.2);
+  transform: scale(1.1);
   border-color: var(--accent-primary);
   z-index: 20;
   animation-play-state: paused;
@@ -275,33 +276,36 @@ nav .container {
 .node-4 { animation-delay: -22.5s; }
 
 .avatar-crop {
-  width: 300%; /* For 3 columns */
-  height: 200%; /* For 2 rows */
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  position: absolute;
+  display: block;
 }
 
 .review-display {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0.9);
-  width: 450px;
-  padding: 3rem;
-  border-radius: 2.5rem;
+  width: 400px;
+  min-height: 200px;
+  padding: 2.5rem 2rem;
+  border-radius: 2rem;
   text-align: center;
-  z-index: 10;
+  z-index: 1000;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 30px 60px rgba(0,0,0,0.12);
+  border: 1px solid var(--border-subtle);
+  transform: scale(0.9) translateX(-50%);
+  left: 0;
+  top: 0;
 }
 
 .review-display.visible {
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, -50%) scale(1);
-  box-shadow: 0 40px 100px rgba(0,0,0,0.1);
+  transform: scale(1) translateX(-50%);
 }
 
 .quote-icon {

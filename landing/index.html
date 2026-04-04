@@ -78,20 +78,20 @@
             
             <div class="trust-interactive-wrapper">
                 <svg class="wavy-path" viewBox="0 0 1300 400" preserveAspectRatio="none">
-                    <path d="M1300,200 C1000,350 400,50 0,200" fill="transparent" stroke="var(--accent-primary)" stroke-width="2" stroke-dasharray="10 10" opacity="0.15"/>
+                    <path d="M1300,200 C1000,350 400,50 0,200" fill="transparent" stroke="var(--accent-primary)" stroke-width="2" stroke-dasharray="10 10" opacity="0.1"/>
                 </svg>
                 
                 <div class="trust-node node-1" data-review="&quot;Stardust translated my complex estate into a simple dashboard. The peace of mind for my children is priceless.&quot;" data-author="Emily R." data-role="Estate Planner">
-                    <img src="avatars.png" class="avatar-crop" alt="User Avatar" style="object-position: 0% 0%;">
+                    <img src="avatar1.png" class="avatar-crop" alt="Emily R.">
                 </div>
                 <div class="trust-node node-2" data-review="&quot;Finally, a secure vault for my digital keys and legal deeds. The cross-platform access is truly seamless.&quot;" data-author="James H." data-role="Tech Executive">
-                    <img src="avatars.png" class="avatar-crop" alt="User Avatar" style="object-position: 50% 0%;">
+                    <img src="avatar2.png" class="avatar-crop" alt="James H.">
                 </div>
                 <div class="trust-node node-3" data-review="&quot;Managing my parents' documents as a nominee used to be a nightmare. Stardust made it a 5-minute task.&quot;" data-author="Sarah M." data-role="Legal Counsel">
-                    <img src="avatars.png" class="avatar-crop" alt="User Avatar" style="object-position: 100% 0%;">
+                    <img src="avatar3.png" class="avatar-crop" alt="Sarah M.">
                 </div>
                 <div class="trust-node node-4" data-review="&quot;I've tried every vault app, but Stardust's focus on succession planning is what sets it apart. Highly recommended.&quot;" data-author="Alex D." data-role="Business Owner">
-                    <img src="avatars.png" class="avatar-crop" alt="User Avatar" style="object-position: 0% 100%;">
+                    <img src="avatar4.png" class="avatar-crop" alt="Alex D.">
                 </div>
 
                 <!-- Central Reveal Card -->
@@ -269,6 +269,7 @@
         
         // Interactive Review Card Logic
         const nodes = document.querySelectorAll('.trust-node');
+        const trustWrapper = document.querySelector('.trust-interactive-wrapper');
         const reviewCard = document.getElementById('review-card');
         const reviewText = document.getElementById('display-review');
         const authorName = document.getElementById('display-name');
@@ -276,9 +277,21 @@
 
         nodes.forEach(node => {
             node.addEventListener('mouseenter', () => {
+                // Set Content
                 reviewText.textContent = node.dataset.review;
                 authorName.textContent = node.dataset.author;
                 authorRole.textContent = node.dataset.role;
+                
+                // Position Card Below Node
+                const rect = node.getBoundingClientRect();
+                const containerRect = trustWrapper.getBoundingClientRect();
+                
+                const left = (rect.left + (rect.width / 2)) - containerRect.left;
+                const top = (rect.top + rect.height + 20) - containerRect.top;
+                
+                reviewCard.style.left = `${left}px`;
+                reviewCard.style.top = `${top}px`;
+                
                 reviewCard.classList.add('visible');
             });
             node.addEventListener('mouseleave', () => {
