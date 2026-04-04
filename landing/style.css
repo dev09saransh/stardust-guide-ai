@@ -226,6 +226,7 @@ nav .container {
   position: relative;
   height: 450px;
   margin-top: 4rem;
+  overflow: hidden;
 }
 
 .wavy-path {
@@ -249,48 +250,58 @@ nav .container {
   overflow: hidden;
   cursor: pointer;
   z-index: 5;
-  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: border-color 0.4s, transform 0.4s;
+  
+  /* Path Animation */
+  offset-path: path("M1300,200 C1000,350 400,50 0,200");
+  animation: moveAlongPath 30s linear infinite;
 }
 
 .trust-node:hover {
-  transform: scale(1.15) translateY(-5px);
+  transform: scale(1.2);
   border-color: var(--accent-primary);
   z-index: 20;
+  animation-play-state: paused;
 }
+
+@keyframes moveAlongPath {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+
+.node-1 { animation-delay: 0s; }
+.node-2 { animation-delay: -7.5s; }
+.node-3 { animation-delay: -15s; }
+.node-4 { animation-delay: -22.5s; }
 
 .avatar-crop {
-  width: 200%; /* Since it's a collage */
-  height: 200%;
+  width: 300%; /* For 3 columns */
+  height: 200%; /* For 2 rows */
   object-fit: cover;
+  position: absolute;
 }
-
-/* Positioning nodes along the curve */
-.node-1 { left: 10%; top: 40%; }
-.node-2 { left: 35%; top: 15%; }
-.node-3 { left: 60%; top: 65%; }
-.node-4 { left: 85%; top: 35%; }
-
-/* Crop settings for the avatars collage */
-.crop-1 { object-position: 0% 0%; }
-.crop-2 { object-position: 50% 0%; }
-.crop-3 { object-position: 100% 0%; }
-.crop-4 { object-position: 0% 50%; }
 
 .review-display {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.9);
   width: 450px;
   padding: 3rem;
   border-radius: 2.5rem;
   text-align: center;
   z-index: 10;
   pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-#review-card {
-  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+.review-display.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+  box-shadow: 0 40px 100px rgba(0,0,0,0.1);
 }
 
 .quote-icon {

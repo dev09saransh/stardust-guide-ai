@@ -77,30 +77,30 @@
             </div>
             
             <div class="trust-interactive-wrapper">
-                <svg class="wavy-path" viewBox="0 0 1200 400" preserveAspectRatio="none">
-                    <path d="M0,200 C300,50 900,350 1200,200" fill="transparent" stroke="var(--accent-primary)" stroke-width="2" stroke-dasharray="10 10" opacity="0.3"/>
+                <svg class="wavy-path" viewBox="0 0 1300 400" preserveAspectRatio="none">
+                    <path d="M1300,200 C1000,350 400,50 0,200" fill="transparent" stroke="var(--accent-primary)" stroke-width="2" stroke-dasharray="10 10" opacity="0.15"/>
                 </svg>
                 
-                <div class="trust-node node-1" data-review="\"Stardust gives me the peace of mind that my family will have everything they need if something happens to me. The setup was seamless.\"" data-author="Emily R." data-role="Estate Planner">
-                    <img src="avatars.png" class="avatar-crop crop-1" alt="User Avatar">
+                <div class="trust-node node-1" data-review="&quot;Stardust translated my complex estate into a simple dashboard. The peace of mind for my children is priceless.&quot;" data-author="Emily R." data-role="Estate Planner">
+                    <img src="avatars.png" class="avatar-crop" alt="User Avatar" style="object-position: 0% 0%;">
                 </div>
-                <div class="trust-node node-2" data-review="\"Finally, a professional place to store my crypto keys and legal deeds. The security is top-notch and the interface is beautiful.\"" data-author="James H." data-role="Tech Executive">
-                    <img src="avatars.png" class="avatar-crop crop-2" alt="User Avatar">
+                <div class="trust-node node-2" data-review="&quot;Finally, a secure vault for my digital keys and legal deeds. The cross-platform access is truly seamless.&quot;" data-author="James H." data-role="Tech Executive">
+                    <img src="avatars.png" class="avatar-crop" alt="User Avatar" style="object-position: 50% 0%;">
                 </div>
-                <div class="trust-node node-3" data-review="\"As a nominee for my parents, I find the Trust Network incredibly easy to use. It's a lifesaver for family coordination.\"" data-author="Sarah M." data-role="Legal Counsel">
-                    <img src="avatars.png" class="avatar-crop crop-3" alt="User Avatar">
+                <div class="trust-node node-3" data-review="&quot;Managing my parents' documents as a nominee used to be a nightmare. Stardust made it a 5-minute task.&quot;" data-author="Sarah M." data-role="Legal Counsel">
+                    <img src="avatars.png" class="avatar-crop" alt="User Avatar" style="object-position: 100% 0%;">
                 </div>
-                <div class="trust-node node-4" data-review="\"Organizing my life was always a chore until Stardust. Now, everything from insurance to IDs is just a tap away.\"" data-author="Alex D." data-role="Business Owner">
-                    <img src="avatars.png" class="avatar-crop crop-4" alt="User Avatar">
+                <div class="trust-node node-4" data-review="&quot;I've tried every vault app, but Stardust's focus on succession planning is what sets it apart. Highly recommended.&quot;" data-author="Alex D." data-role="Business Owner">
+                    <img src="avatars.png" class="avatar-crop" alt="User Avatar" style="object-position: 0% 100%;">
                 </div>
 
                 <!-- Central Reveal Card -->
-                <div class="review-display glass reveal-blur" id="review-card">
+                <div class="review-display glass" id="review-card">
                     <div class="quote-icon"><i data-lucide="quote"></i></div>
-                    <p id="display-review">Hover over our members to see why they trust Stardust Vault with their digital legacy.</p>
+                    <p id="display-review"></p>
                     <div class="author-info">
-                        <strong id="display-name">Join the Network</strong>
-                        <p id="display-role">Stardust Trust Community</p>
+                        <strong id="display-name"></strong>
+                        <p id="display-role"></p>
                     </div>
                 </div>
             </div>
@@ -279,12 +279,10 @@
                 reviewText.textContent = node.dataset.review;
                 authorName.textContent = node.dataset.author;
                 authorRole.textContent = node.dataset.role;
-                reviewCard.style.transform = 'scale(1.05)';
-                reviewCard.style.boxShadow = '0 25px 50px rgba(0,0,0,0.1)';
+                reviewCard.classList.add('visible');
             });
             node.addEventListener('mouseleave', () => {
-                reviewCard.style.transform = 'scale(1)';
-                reviewCard.style.boxShadow = '';
+                reviewCard.classList.remove('visible');
             });
         });
     </script>
