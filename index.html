@@ -274,7 +274,63 @@
             state.isProcessing = true;
             logStatus("Analyzing input stream...");
 
-            // 1. Interrupt Check: Detect High-Scoring Intent first
+            // 1. State-Based Flow Handling (Priority)
+            
+            // Handle Guided Plan Steps
+            if(state.intent && state.intent.startsWith('PLAN_STEP_')) {
+                handlePlanningStep(val);
+                state.isProcessing = false;
+                updateUI();
+                return;
+            }
+
+            // Handle YES/NO confirmation of the roadmap
+            if(state.intent === 'ROADMAP_GENERATED') {
+                if(val.includes('yes') || val.includes('lets do it') || val.includes('start') || val.includes('sure')) {
+                    startExecution();
+                    state.isProcessing = false;
+                    updateUI();
+                    return;
+                }
+            }
+
+            // Handle Plan Execution (Step-by-Step)
+            if(state.intent === 'PLAN_EXECUTION') {
+                if(state.planExecutionStep === 1) {
+                    // Expecting Nominee Number
+                    const phone = val.match(/\d+/);
+                    if(phone && phone[0].length >= 10) {
+                        state.data.nominee = phone[0];
+                        state.zones.nominee = true;
+                        state.securityScore += 15;
+                        addMessage(`Nominee registered: **${phone[0]}**. System pulse established.`, "ai");
+                        nextExecutionStep();
+                    } else {
+                        addMessage("I require a valid 10-digit communication number to establish the nominee link.", "ai");
+                    }
+                    state.isProcessing = false;
+                    updateUI();
+                    return;
+                }
+            }
+
+            // Handle Succession Time variable
+            if(state.intent === 'SUCCESSION_WAITING_TIME') {
+                handleSuccessionTime(val);
+                state.isProcessing = false;
+                updateUI();
+                return;
+            }
+
+            // Handle Upload category
+            if(state.intent === 'UPLOAD_WAITING_CAT') {
+                handleUploadCat(val);
+                state.isProcessing = false;
+                updateUI();
+                return;
+            }
+
+            // 2. Interrupt Check: Detect High-Confidence Commands
             let candidates = intents.map((intent) => {
                 let currentScore = 0;
                 intent.keys.forEach((k) => {
@@ -285,34 +341,15 @@
 
             const best = candidates[0];
 
-            // If a new intent is detected with significant confidence, reset state and switch
-            if(best && best.score >= 10 && best.id !== state.intent) {
+            // Only switch if the command is high confidence (score > 15) or explicit
+            if(best && best.score >= 15 && best.id !== state.intent) {
                  logStatus(`Switching Flow: -> ${best.id}`);
                  state.intent = null; 
                  state.planExecutionStep = 0;
-                 // Handle new intent immediately
                  handleIntent(best.id, val);
                  state.isProcessing = false;
                  updateUI();
                  return;
-            }
-
-            // 2. State-Based Flow Handling (if no interruption)
-            
-            // Handle Guided Plan Steps
-            if(state.intent && state.intent.startsWith('PLAN_STEP_')) {
-                handlePlanningStep(val);
-                state.isProcessing = false;
-                return;
-            }
-
-            // Handle YES/NO confirmation of the roadmap
-            if(state.intent === 'ROADMAP_GENERATED') {
-                if(val.includes('yes') || val.includes('lets do it') || val.includes('start') || val.includes('sure')) {
-                    startExecution();
-                    state.isProcessing = false;
-                    return;
-                }
             }
 
             // Handle Plan Execution (Step-by-Step)
@@ -395,6 +432,11 @@
                     state.intent = 'PLAN_STEP_1';
                     state.data.plan = {};
                     addChips(["Immediate family", "No dependents", "Personal use only"]);
+                    break;
+                case 'NOMINEE':
+                    const nominee = state.data.nominee || 'Unregistered';
+                    addMessage(`**Nominee Status:** ${nominee}. You can link a primary guardian by starting a Vault Audit or by selecting "Plan my vault".`, "ai");
+                    addChips(["Plan my vault", "Check status", "Help"]);
                     break;
             }
         }
