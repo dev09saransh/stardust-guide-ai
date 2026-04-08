@@ -246,6 +246,49 @@
         .zone-indicator { width: 10px; height: 10px; border-radius: 50%; background: #333; }
         .zone-indicator.active { background: #00ff88; box-shadow: 0 0 10px #00ff88; }
 
+        /* --- Mic Button --- */
+        .mic-btn {
+            width: 44px; height: 44px; border-radius: 50%; border: none;
+            background: var(--glass-heavy); color: var(--siri-blue); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; flex-shrink: 0; transition: all 0.3s;
+            border: 1px solid var(--border); position: relative;
+        }
+        .mic-btn:hover { background: rgba(255,255,255,0.2); }
+        .mic-btn.listening {
+            background: rgba(255, 64, 129, 0.3); border-color: var(--siri-pink);
+            animation: micPulse 1s ease-in-out infinite;
+        }
+        .mic-btn.listening::after {
+            content: ''; position: absolute; width: 100%; height: 100%;
+            border-radius: 50%; border: 2px solid var(--siri-pink);
+            animation: micRing 1.5s ease-out infinite;
+        }
+        @keyframes micPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        @keyframes micRing {
+            0% { transform: scale(1); opacity: 0.6; }
+            100% { transform: scale(1.8); opacity: 0; }
+        }
+
+        .voice-lang-indicator {
+            position: absolute; top: -8px; right: -8px;
+            font-size: 9px; font-weight: 700; background: var(--siri-purple);
+            color: #fff; padding: 2px 6px; border-radius: 8px;
+            letter-spacing: 0.5px; pointer-events: none;
+        }
+
+        .tts-toggle {
+            font-size: 12px; color: var(--text-muted); cursor: pointer;
+            padding: 4px 10px; border-radius: 12px;
+            background: var(--glass); border: 1px solid var(--border);
+            transition: all 0.3s; display: flex; align-items: center; gap: 5px;
+        }
+        .tts-toggle:hover { background: var(--glass-heavy); }
+        .tts-toggle.active { color: var(--siri-blue); border-color: var(--siri-blue); }
+
     </style>
 </head>
 <body>
@@ -275,11 +318,18 @@
 
         <div class="bottom-area">
             <div class="input-container">
-                <input type="text" id="in" placeholder="Ask Stardust..." autocomplete="off">
+                <input type="text" id="in" placeholder="Ask Stardust... (voice: EN / HI)" autocomplete="off">
+                <button class="mic-btn" id="mic-btn" onclick="toggleVoice()" title="Voice Input (English / Hindi)">
+                    🎙️
+                    <span class="voice-lang-indicator" id="lang-badge">EN</span>
+                </button>
                 <div class="siri-orb-wrapper" id="orb-trigger" onclick="send()">
                     <div class="siri-orb-glow"></div>
                     <div class="siri-orb"></div>
                 </div>
+            </div>
+            <div style="display:flex; justify-content:center; gap:12px; margin-top:10px;">
+                <div class="tts-toggle active" id="tts-toggle" onclick="toggleTTS()">🔊 Voice Reply</div>
             </div>
         </div>
     </div>
@@ -323,16 +373,16 @@
         };
 
         const intents = [
-            { id: 'GREETING', keys: ['hello', 'hi', 'hey', 'greetings', 'sup', 'morning', 'evening', 'help'], score: 10 },
-            { id: 'UPLOAD', keys: ['upload', 'secure', 'save', 'put', 'file', 'document', 'paper'], score: 10 },
-            { id: 'AUDIT', keys: ['audit', 'check', 'scan', 'verify', 'status', 'health', 'how am i doing'], score: 10 },
-            { id: 'SUCCESSION', keys: ['succession', 'legacy', 'dead', 'death', 'after', 'will', 'transfer', 'inheritance'], score: 10 },
-            { id: 'NOMINEE', keys: ['nominee', 'add', 'person', 'family', 'friend', 'emergency', 'contact', 'guardian'], score: 12 },
-            { id: 'SECURITY', keys: ['safe', 'secure', 'encrypt', 'protection', 'how', 'why', 'hack'], score: 10 },
-            { id: 'PLAN', keys: ['plan', 'future', 'guide', 'roadmap', 'strategies', 'what should i do'], score: 10 },
-            { id: 'VIEW_VAULT', keys: ['view', 'show', 'list', 'my items', 'documents', 'what do i have', 'vault'], score: 10 },
-            { id: 'DELETE_DATA', keys: ['delete', 'remove', 'erase', 'discard'], score: 10 },
-            { id: 'UPDATE_DATA', keys: ['update', 'change', 'modify', 'edit'], score: 10 }
+            { id: 'GREETING', keys: ['hello', 'hi', 'hey', 'greetings', 'sup', 'morning', 'evening', 'help', 'namaste', 'namaskar', 'namaskaar', 'kaise ho', 'kya haal', 'madad'], score: 10 },
+            { id: 'UPLOAD', keys: ['upload', 'secure', 'save', 'put', 'file', 'document', 'paper', 'daalein', 'daalo', 'rakho', 'surakshit', 'faail', 'dastavez', 'kagaz'], score: 10 },
+            { id: 'AUDIT', keys: ['audit', 'check', 'scan', 'verify', 'status', 'health', 'how am i doing', 'jaanch', 'janch', 'sthiti', 'dekhein', 'dekho', 'kaisa hai'], score: 10 },
+            { id: 'SUCCESSION', keys: ['succession', 'legacy', 'dead', 'death', 'after', 'will', 'transfer', 'inheritance', 'uttaradhikaar', 'virasat', 'mrityu', 'vasiyat', 'hstantaran'], score: 10 },
+            { id: 'NOMINEE', keys: ['nominee', 'add', 'person', 'family', 'friend', 'emergency', 'contact', 'guardian', 'vyakti', 'parivaar', 'dost', 'sampark', 'jodin', 'jodo', 'naam'], score: 12 },
+            { id: 'SECURITY', keys: ['safe', 'secure', 'encrypt', 'protection', 'how', 'why', 'hack', 'suraksha', 'kaise', 'kyun'], score: 10 },
+            { id: 'PLAN', keys: ['plan', 'future', 'guide', 'roadmap', 'strategies', 'what should i do', 'yojana', 'bhavishya', 'margdarshan', 'kya karun'], score: 10 },
+            { id: 'VIEW_VAULT', keys: ['view', 'show', 'list', 'my items', 'documents', 'what do i have', 'vault', 'dikhao', 'dikhaein', 'suchi', 'mere', 'kya hai mere paas'], score: 10 },
+            { id: 'DELETE_DATA', keys: ['delete', 'remove', 'erase', 'discard', 'hatao', 'mita do', 'nikalo'], score: 10 },
+            { id: 'UPDATE_DATA', keys: ['update', 'change', 'modify', 'edit', 'badlo', 'sudharo', 'parivartan'], score: 10 }
         ];
 
         function toggleDashboard() {
@@ -721,6 +771,182 @@
         updateUI();
         addChips(["Hello", "Plan my vault", "Upload document"]);
         document.getElementById('in').focus();
+
+        // ========== VOICE ENGINE ==========
+        let voiceState = {
+            isListening: false,
+            recognition: null,
+            ttsEnabled: true,
+            currentLang: 'en-IN'
+        };
+
+        // Hindi to English transliteration map for common phrases
+        const hindiMap = {
+            'नमस्ते': 'hello', 'नमस्कार': 'hello', 'हैलो': 'hello',
+            'कैसे हो': 'how am i doing', 'क्या हाल': 'how am i doing',
+            'मदद': 'help', 'सहायता': 'help',
+            'अपलोड': 'upload', 'दस्तावेज': 'document', 'फाइल': 'file',
+            'सुरक्षित': 'secure', 'रखो': 'save', 'डालो': 'upload',
+            'जांच': 'audit', 'स्थिति': 'status', 'देखो': 'check',
+            'दिखाओ': 'show', 'सूची': 'list', 'क्या है मेरे पास': 'what do i have',
+            'हटाओ': 'delete', 'मिटा दो': 'delete', 'निकालो': 'remove',
+            'बदलो': 'update', 'सुधारो': 'update', 'परिवर्तन': 'change',
+            'योजना': 'plan', 'भविष्य': 'future', 'मार्गदर्शन': 'guide',
+            'व्यक्ति': 'nominee', 'परिवार': 'family', 'दोस्त': 'friend',
+            'संपर्क': 'contact', 'जोड़ो': 'add', 'नाम': 'nominee',
+            'उत्तराधिकार': 'succession', 'विरासत': 'legacy', 'वसीयत': 'will',
+            'सुरक्षा': 'security', 'कैसे': 'how', 'क्यूं': 'why',
+            'हां': 'yes', 'हाँ': 'yes', 'नहीं': 'no', 'शुरू': 'start',
+            'छह': '6', 'बारह': '12', 'चौबीस': '24',
+            'वित्तीय': 'financial', 'बीमा': 'insurance', 'कानूनी': 'legal'
+        };
+
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.warn('Speech Recognition not supported');
+                document.getElementById('mic-btn').style.display = 'none';
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 3;
+
+            recognition.onstart = () => {
+                voiceState.isListening = true;
+                document.getElementById('mic-btn').classList.add('listening');
+                document.getElementById('in').placeholder = voiceState.currentLang === 'hi-IN' ? 'सुन रहा हूँ...' : 'Listening...';
+            };
+
+            recognition.onresult = (event) => {
+                const results = event.results[0];
+                const confidence = results[0].confidence;
+                let transcript = results[0].transcript.trim();
+
+                // Noise filter: reject low confidence
+                if (confidence < 0.4) {
+                    addMessage("I couldn't catch that clearly. Please try again.", "ai");
+                    speakResponse("I couldn't catch that clearly. Please try again.");
+                    return;
+                }
+
+                // Detect language from result
+                const hasDevanagari = /[\u0900-\u097F]/.test(transcript);
+                if (hasDevanagari) {
+                    document.getElementById('lang-badge').textContent = 'HI';
+                    // Translate Hindi script words to English equivalents
+                    for (const [hindi, eng] of Object.entries(hindiMap)) {
+                        transcript = transcript.replace(new RegExp(hindi, 'gi'), eng);
+                    }
+                } else {
+                    document.getElementById('lang-badge').textContent = 'EN';
+                }
+
+                document.getElementById('in').value = transcript;
+                send();
+            };
+
+            recognition.onerror = (event) => {
+                voiceState.isListening = false;
+                document.getElementById('mic-btn').classList.remove('listening');
+                document.getElementById('in').placeholder = 'Ask Stardust... (voice: EN / HI)';
+
+                if (event.error === 'no-speech') {
+                    addMessage("No voice detected. Please try speaking again.", "ai");
+                } else if (event.error === 'not-allowed') {
+                    addMessage("Microphone access denied. Please enable it in your browser settings.", "ai");
+                }
+            };
+
+            recognition.onend = () => {
+                voiceState.isListening = false;
+                document.getElementById('mic-btn').classList.remove('listening');
+                document.getElementById('in').placeholder = 'Ask Stardust... (voice: EN / HI)';
+            };
+
+            voiceState.recognition = recognition;
+        }
+
+        function toggleVoice() {
+            if (!voiceState.recognition) {
+                initSpeechRecognition();
+                if (!voiceState.recognition) return;
+            }
+
+            if (voiceState.isListening) {
+                voiceState.recognition.stop();
+                return;
+            }
+
+            // Cycle language on each press: en-IN -> hi-IN -> en-IN
+            if (voiceState.currentLang === 'en-IN') {
+                voiceState.currentLang = 'hi-IN';
+                document.getElementById('lang-badge').textContent = 'HI';
+            } else {
+                voiceState.currentLang = 'en-IN';
+                document.getElementById('lang-badge').textContent = 'EN';
+            }
+
+            voiceState.recognition.lang = voiceState.currentLang;
+
+            try {
+                voiceState.recognition.start();
+            } catch(e) {
+                // Already started, ignore
+            }
+        }
+
+        function speakResponse(text) {
+            if (!voiceState.ttsEnabled) return;
+            if (!window.speechSynthesis) return;
+
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+
+            // Strip HTML/markdown for clean speech
+            const clean = text
+                .replace(/<[^>]*>/g, '')
+                .replace(/\*\*/g, '')
+                .replace(/###?/g, '')
+                .replace(/🌟|📂|📄/g, '')
+                .trim();
+
+            if (!clean) return;
+
+            const utterance = new SpeechSynthesisUtterance(clean);
+            // Use Hindi voice if last input was Hindi
+            const badge = document.getElementById('lang-badge').textContent;
+            utterance.lang = badge === 'HI' ? 'hi-IN' : 'en-IN';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 0.9;
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleTTS() {
+            voiceState.ttsEnabled = !voiceState.ttsEnabled;
+            const btn = document.getElementById('tts-toggle');
+            if (voiceState.ttsEnabled) {
+                btn.classList.add('active');
+                btn.textContent = '🔊 Voice Reply';
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = '🔇 Voice Off';
+            }
+        }
+
+        // Hook TTS into addMessage
+        const _originalAddMessage = addMessage;
+        addMessage = function(msgText, type, file) {
+            _originalAddMessage(msgText, type, file);
+            if (type === 'ai') speakResponse(msgText);
+        };
+
+        // Initialize speech recognition
+        initSpeechRecognition();
     </script>
 </body>
 </html>
