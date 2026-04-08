@@ -658,7 +658,7 @@
         function handleIntent(id, original) {
             switch(id) {
                 case 'GREETING':
-                    addMessage(t("Greetings, Traveler. I am the Stardust Guide. Standing by for encryption, reorganization, and planning functions. How shall we secure your future today?", "नमस्ते, यात्री। मैं Stardust Guide हूँ। एन्क्रिप्शन, पुनर्गठन और योजना कार्यों के लिए तैयार हूँ। आज आपके भविष्य को कैसे सुरक्षित करें?"), "ai");
+                    addMessage(t("Greetings, User. I am the Stardust Guide. Standing by for encryption, reorganization, and planning functions. How shall we secure your future today?", "नमस्ते, उपयोगकर्ता। मैं Stardust Guide हूँ। एन्क्रिप्शन, पुनर्गठन और योजना कार्यों के लिए तैयार हूँ। आज आपके भविष्य को कैसे सुरक्षित करें?"), "ai");
                     addChips(t(["Plan my vault", "Upload document", "Check status"], ["योजना बनाओ", "दस्तावेज़ अपलोड करो", "स्थिति जांचो"]));
                     break;
                 case 'AUDIT':
@@ -944,12 +944,22 @@
             if (!clean) return;
 
             const utterance = new SpeechSynthesisUtterance(clean);
-            // Use Hindi voice if last input was Hindi
             const badge = document.getElementById('lang-badge').textContent;
-            utterance.lang = badge === 'HI' ? 'hi-IN' : 'en-IN';
+            
+            // Set language
+            utterance.lang = (badge === 'HI') ? 'hi-IN' : 'en-IN';
+            
+            // Try to find a specific voice for the language
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                const langCode = (badge === 'HI') ? 'hi' : 'en';
+                const voice = voices.find(v => v.lang.startsWith(langCode));
+                if (voice) utterance.voice = voice;
+            }
+
             utterance.rate = 1.0;
             utterance.pitch = 1.0;
-            utterance.volume = 0.9;
+            utterance.volume = 1.0;
 
             window.speechSynthesis.speak(utterance);
         }
