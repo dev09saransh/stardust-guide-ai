@@ -369,8 +369,27 @@
             securityScore: 35,
             zones: { assets: false, insur: false, legal: false, nominee: false },
             planExecutionStep: 0,
-            vaultItems: [] // Central storage for all documents and nominee data
+            vaultItems: [],
+            lang: 'en' // auto-detected: 'en' or 'hi'
         };
+
+        // Hindi keywords for auto-detection from typed/transliterated input
+        const hindiIndicators = ['namaste','namaskar','kaise','kya','mera','mere','hai','haan','nahi','dikhao','hatao','badlo','daalo','rakho','yojana','suraksha','madad','dost','parivaar','dekho','suchi','bhavishya'];
+
+        function detectLang(val) {
+            // Check for Devanagari script
+            if (/[\u0900-\u097F]/.test(val)) return 'hi';
+            // Check for transliterated Hindi words
+            const words = val.toLowerCase().split(/\s+/);
+            const hindiHits = words.filter(w => hindiIndicators.includes(w)).length;
+            if (hindiHits >= 1) return 'hi';
+            return 'en';
+        }
+
+        // Bilingual response helper
+        function t(en, hi) {
+            return state.lang === 'hi' ? hi : en;
+        }
 
         const intents = [
             { id: 'GREETING', keys: ['hello', 'hi', 'hey', 'greetings', 'sup', 'morning', 'evening', 'help', 'namaste', 'namaskar', 'namaskaar', 'kaise ho', 'kya haal', 'madad'], score: 10 },
@@ -456,6 +475,10 @@
             const val = input.value.trim();
             if(!val || state.isProcessing) return;
 
+            // Auto-detect language from user input
+            state.lang = detectLang(val);
+            document.getElementById('lang-badge').textContent = state.lang === 'hi' ? 'HI' : 'EN';
+
             document.getElementById('chips').innerHTML = '';
             addMessage(val, 'u');
             input.value = '';
@@ -473,10 +496,10 @@
                 if(match) {
                     state.intent = 'UPLOAD_READY';
                     state.data.category = match;
-                    addMessage(`Accessing **${match.toUpperCase()}** partition. Preparing encryption gateway. Please select the file to secure.`, "ai");
+                    addMessage(t(`Accessing **${match.toUpperCase()}** partition. Preparing encryption gateway. Please select the file to secure.`, `**${match.toUpperCase()}** विभाग खुल रहा है। कृपया सुरक्षित करने के लिए फ़ाइल चुनें।`), "ai");
                     setTimeout(() => document.getElementById('filePicker').click(), 1000);
                 } else {
-                    addMessage("Please specify the data partition: Financial, Insurance, or Legal.", "ai");
+                    addMessage(t("Please specify the data partition: Financial, Insurance, or Legal.", "कृपया विभाग बताएं: वित्तीय, बीमा, या कानूनी।"), "ai");
                 }
                 finalizeInput();
                 return;
@@ -485,10 +508,10 @@
             if(state.intent === 'SUCCESSION_WAITING_TIME') {
                 const months = val.match(/\d+/);
                 if(months) {
-                    addMessage(`Succession trigger locked at **${months[0]} months** of inactivity. Encryption key will be released to nominees upon validation.`, "ai");
+                    addMessage(t(`Succession trigger locked at **${months[0]} months** of inactivity. Encryption key will be released to nominees upon validation.`, `उत्तराधिकार ट्रिगर **${months[0]} महीने** की निष्क्रियता पर सेट किया गया। सत्यापन के बाद नॉमिनी को एन्क्रिप्शन कुंजी दी जाएगी।`), "ai");
                     state.intent = null;
                 } else {
-                    addMessage("Please provide the number of months (e.g., '12 months').", "ai");
+                    addMessage(t("Please provide the number of months (e.g., '12 months').", "कृपया महीनों की संख्या दें (जैसे '12 महीने')।"), "ai");
                 }
                 finalizeInput();
                 return;
@@ -501,7 +524,7 @@
             }
 
             if(state.intent === 'ROADMAP_GENERATED') {
-                if(val.includes('yes') || val.includes('lets do it') || val.includes('start') || val.includes('sure')) {
+                if(val.includes('yes') || val.includes('lets do it') || val.includes('start') || val.includes('sure') || val.includes('haan') || val.includes('haa') || /हा[ंँ]?/.test(val) || val.includes('shuru')) {
                     startExecution();
                     finalizeInput();
                     return;
@@ -515,20 +538,11 @@
                         state.data.nominee = phone[0];
                         state.zones.nominee = true;
                         state.securityScore += 15;
-                        
-                        // Store nominee data in vaultItems
-                        state.vaultItems.push({
-                            id: Date.now(),
-                            type: 'Nominee',
-                            name: 'Primary Guardian',
-                            value: phone[0],
-                            date: new Date().toLocaleDateString()
-                        });
-
-                        addMessage(`Nominee registered: **${phone[0]}**. System pulse established.`, "ai");
+                        state.vaultItems.push({ id: Date.now(), type: 'Nominee', name: 'Primary Guardian', value: phone[0], date: new Date().toLocaleDateString() });
+                        addMessage(t(`Nominee registered: **${phone[0]}**. System pulse established.`, `नॉमिनी पंजीकृत: **${phone[0]}**। सिस्टम लिंक स्थापित।`), "ai");
                         nextExecutionStep();
                     } else {
-                        addMessage("I require a valid 10-digit communication number to establish the nominee link.", "ai");
+                        addMessage(t("I require a valid 10-digit communication number to establish the nominee link.", "नॉमिनी लिंक के लिए 10 अंकों का वैध नंबर दें।"), "ai");
                     }
                     finalizeInput();
                     return;
@@ -539,10 +553,10 @@
                 const index = parseInt(val) - 1;
                 if(!isNaN(index) && state.vaultItems[index]) {
                     const removed = state.vaultItems.splice(index, 1)[0];
-                    addMessage(`Successfully purged **${removed.name || removed.value}** from the encryption layer.`, "ai");
+                    addMessage(t(`Successfully purged **${removed.name || removed.value}** from the encryption layer.`, `**${removed.name || removed.value}** को वॉल्ट से सफलतापूर्वक हटा दिया गया।`), "ai");
                     state.intent = null;
                 } else {
-                    addMessage("Invalid selection. Protocol aborted.", "ai");
+                    addMessage(t("Invalid selection. Protocol aborted.", "अमान्य चयन। प्रक्रिया रद्द।"), "ai");
                     state.intent = null;
                 }
                 finalizeInput();
@@ -553,10 +567,10 @@
                 const index = parseInt(val) - 1;
                 if(!isNaN(index) && state.vaultItems[index]) {
                     state.data.updateIndex = index;
-                    addMessage(`Gateway ready for **${state.vaultItems[index].name}**. Please provide the new value or updated information.`, "ai");
+                    addMessage(t(`Gateway ready for **${state.vaultItems[index].name}**. Please provide the new value or updated information.`, `**${state.vaultItems[index].name}** के लिए गेटवे तैयार। कृपया नई जानकारी दें।`), "ai");
                     state.intent = 'UPDATE_WAITING_VALUE';
                 } else {
-                    addMessage("Target not found. Update sequence terminated.", "ai");
+                    addMessage(t("Target not found. Update sequence terminated.", "लक्ष्य नहीं मिला। अपडेट रद्द।"), "ai");
                     state.intent = null;
                 }
                 finalizeInput();
@@ -567,7 +581,7 @@
                 const index = state.data.updateIndex;
                 const oldVal = state.vaultItems[index].value;
                 state.vaultItems[index].value = val;
-                addMessage(`Record updated from **${oldVal}** to **${val}**. New entropy applied.`, "ai");
+                addMessage(t(`Record updated from **${oldVal}** to **${val}**. New entropy applied.`, `रिकॉर्ड **${oldVal}** से **${val}** में अपडेट किया गया।`), "ai");
                 state.intent = null;
                 finalizeInput();
                 return;
@@ -575,7 +589,7 @@
 
             if(state.intent === 'NOMINEE_WAITING_NAME') {
                 state.data.newNomineeName = val;
-                addMessage(`Noted: **${val}**. Now provide their 10-digit contact number.`, "ai");
+                addMessage(t(`Noted: **${val}**. Now provide their 10-digit contact number.`, `नोट किया: **${val}**। अब उनका 10 अंकों का नंबर दें।`), "ai");
                 state.intent = 'NOMINEE_WAITING_NUMBER';
                 finalizeInput();
                 return;
@@ -584,20 +598,14 @@
             if(state.intent === 'NOMINEE_WAITING_NUMBER') {
                 const phone = val.match(/\d+/);
                 if(phone && phone[0].length >= 10) {
-                    state.vaultItems.push({
-                        id: Date.now(),
-                        type: 'Nominee',
-                        name: state.data.newNomineeName,
-                        value: phone[0],
-                        date: new Date().toLocaleDateString()
-                    });
+                    state.vaultItems.push({ id: Date.now(), type: 'Nominee', name: state.data.newNomineeName, value: phone[0], date: new Date().toLocaleDateString() });
                     state.zones.nominee = true;
                     state.securityScore = Math.min(state.securityScore + 10, 100);
-                    addMessage(`Nominee **${state.data.newNomineeName}** registered with contact **${phone[0]}**. Guardian link established.`, "ai");
-                    addChips(["Add another nominee", "Show my vault", "Plan my vault"]);
+                    addMessage(t(`Nominee **${state.data.newNomineeName}** registered with contact **${phone[0]}**. Guardian link established.`, `नॉमिनी **${state.data.newNomineeName}** संपर्क **${phone[0]}** के साथ पंजीकृत। गार्जियन लिंक स्थापित।`), "ai");
+                    addChips(t(["Add another nominee", "Show my vault", "Plan my vault"], ["और नॉमिनी जोड़ें", "मेरा वॉल्ट दिखाओ", "योजना बनाओ"]));
                     state.intent = null;
                 } else {
-                    addMessage("I need a valid 10-digit number. Please try again.", "ai");
+                    addMessage(t("I need a valid 10-digit number. Please try again.", "10 अंकों का वैध नंबर चाहिए। फिर से कोशिश करें।"), "ai");
                 }
                 finalizeInput();
                 return;
@@ -630,63 +638,63 @@
         function handleIntent(id, original) {
             switch(id) {
                 case 'GREETING':
-                    addMessage("Greetings, Traveler. I am the Stardust Guide. Standing by for encryption, reorganization, and planning functions. How shall we secure your future today?", "ai");
-                    addChips(["Plan my vault", "Upload document", "Check status"]);
+                    addMessage(t("Greetings, Traveler. I am the Stardust Guide. Standing by for encryption, reorganization, and planning functions. How shall we secure your future today?", "नमस्ते, यात्री। मैं Stardust Guide हूँ। एन्क्रिप्शन, पुनर्गठन और योजना कार्यों के लिए तैयार हूँ। आज आपके भविष्य को कैसे सुरक्षित करें?"), "ai");
+                    addChips(t(["Plan my vault", "Upload document", "Check status"], ["योजना बनाओ", "दस्तावेज़ अपलोड करो", "स्थिति जांचो"]));
                     break;
                 case 'AUDIT':
-                    addMessage("Commencing security integrity audit... status scan initiated.", "ai");
+                    addMessage(t("Commencing security integrity audit... status scan initiated.", "सुरक्षा अखंडता ऑडिट शुरू हो रहा है... स्कैन चालू।"), "ai");
                     setTimeout(() => {
-                        addMessage("Audit Finalized. Your vault density is low. I recommend performing a **Vault Architect Plan** to identify legal gaps.", "ai");
+                        addMessage(t("Audit Finalized. Your vault density is low. I recommend performing a **Vault Architect Plan** to identify legal gaps.", "ऑडिट पूरा। आपके वॉल्ट की सघनता कम है। कानूनी खामियों को पहचानने के लिए **वॉल्ट आर्किटेक्ट योजना** की सिफारिश है।"), "ai");
                         state.securityScore = 48;
                         updateUI();
-                        addChips(["Start Planning", "Maybe later"]);
+                        addChips(t(["Start Planning", "Maybe later"], ["योजना शुरू करो", "बाद में"]));
                     }, 1200);
                     break;
                 case 'UPLOAD':
-                    addMessage("Gateway open. Which data partition are you securing? (Financial, Insurance, or Legal)", "ai");
+                    addMessage(t("Gateway open. Which data partition are you securing? (Financial, Insurance, or Legal)", "गेटवे खुला है। कौन सा विभाग सुरक्षित कर रहे हैं? (वित्तीय, बीमा, या कानूनी)"), "ai");
                     state.intent = 'UPLOAD_WAITING_CAT';
-                    addChips(["Financial", "Insurance", "Legal"]);
+                    addChips(t(["Financial", "Insurance", "Legal"], ["वित्तीय", "बीमा", "कानूनी"]));
                     break;
                 case 'SUCCESSION':
-                    addMessage("Succession logic requires a timing trigger. How many months of total inactivity should trigger the vault transfer?", "ai");
+                    addMessage(t("Succession logic requires a timing trigger. How many months of total inactivity should trigger the vault transfer?", "उत्तराधिकार के लिए समय सीमा चाहिए। कितने महीने की निष्क्रियता के बाद वॉल्ट ट्रांसफर हो?"), "ai");
                     state.intent = 'SUCCESSION_WAITING_TIME';
-                    addChips(["6 months", "12 months", "24 months"]);
+                    addChips(["6", "12", "24"]);
                     break;
                 case 'NOMINEE':
-                    addMessage("Nominee registration gateway open. Please provide the **full name** of the person you wish to designate as a guardian.", "ai");
+                    addMessage(t("Nominee registration gateway open. Please provide the **full name** of the person you wish to designate as a guardian.", "नॉमिनी पंजीकरण शुरू। कृपया उस व्यक्ति का **पूरा नाम** बताएं जिसे आप गार्जियन बनाना चाहते हैं।"), "ai");
                     state.intent = 'NOMINEE_WAITING_NAME';
                     break;
                 case 'PLAN':
-                    addMessage("I am the **Vault Architect**. Let us build your secure legacy. To start, do you have immediate family or dependents who rely on you financially?", "ai");
+                    addMessage(t("I am the **Vault Architect**. Let us build your secure legacy. To start, do you have immediate family or dependents who rely on you financially?", "मैं **वॉल्ट आर्किटेक्ट** हूँ। आइए आपकी सुरक्षित विरासत बनाएं। शुरू करते हैं — क्या आपके परिवार या आश्रित हैं जो आर्थिक रूप से आप पर निर्भर हैं?"), "ai");
                     state.intent = 'PLAN_STEP_1';
                     state.data.plan = {};
-                    addChips(["Immediate family", "No dependents"]);
+                    addChips(t(["Immediate family", "No dependents"], ["परिवार है", "कोई आश्रित नहीं"]));
                     break;
                 case 'VIEW_VAULT':
                     if(state.vaultItems.length === 0) {
-                        addMessage("Your vault is currently empty. No documents or nominees have been secured yet.", "ai");
+                        addMessage(t("Your vault is currently empty. No documents or nominees have been secured yet.", "आपका वॉल्ट अभी खाली है। कोई दस्तावेज़ या नॉमिनी सुरक्षित नहीं किया गया।"), "ai");
                     } else {
-                        let list = "### 📂 Secured Data Vault<br><br>";
+                        let list = t("### 📂 Secured Data Vault<br><br>", "### 📂 सुरक्षित डेटा वॉल्ट<br><br>");
                         state.vaultItems.forEach((item, i) => {
                             list += `${i+1}. **${item.type}**: ${item.name || item.value} (${item.date})<br>`;
                         });
                         addMessage(list, "ai");
                     }
-                    addChips(["Update data", "Delete data", "Plan my vault"]);
+                    addChips(t(["Update data", "Delete data", "Plan my vault"], ["डेटा बदलो", "डेटा हटाओ", "योजना बनाओ"]));
                     break;
                 case 'DELETE_DATA':
                     if(state.vaultItems.length === 0) {
-                        addMessage("There is no data to delete. The vault is clean.", "ai");
+                        addMessage(t("There is no data to delete. The vault is clean.", "हटाने के लिए कोई डेटा नहीं। वॉल्ट साफ है।"), "ai");
                     } else {
-                        addMessage("Purge sequence initiated. Please enter the number of the item you wish to permanently delete from the vault.", "ai");
+                        addMessage(t("Purge sequence initiated. Please enter the number of the item you wish to permanently delete from the vault.", "डेटा हटाने की प्रक्रिया शुरू। कृपया उस आइटम का नंबर दें जिसे आप स्थायी रूप से हटाना चाहते हैं।"), "ai");
                         state.intent = 'DELETE_WAITING_ID';
                     }
                     break;
                 case 'UPDATE_DATA':
                     if(state.vaultItems.length === 0) {
-                        addMessage("Vault is empty. Nothing to update.", "ai");
+                        addMessage(t("Vault is empty. Nothing to update.", "वॉल्ट खाली है। अपडेट करने के लिए कुछ नहीं।"), "ai");
                     } else {
-                        addMessage("Update gateway opening. Which item number do you need to modify?", "ai");
+                        addMessage(t("Update gateway opening. Which item number do you need to modify?", "अपडेट गेटवे खुल रहा है। कौन सा आइटम नंबर बदलना है?"), "ai");
                         state.intent = 'UPDATE_WAITING_ID';
                     }
                     break;
@@ -696,13 +704,13 @@
         function handlePlanningStep(val) {
             if(state.intent === 'PLAN_STEP_1') {
                 state.data.plan.dependents = val;
-                addMessage("Noted. Which asset types are most critical to your legacy? (e.g. Financial, Real Estate, or Digital)", "ai");
-                addChips(["Financial Assets", "Real Estate", "Digital Portfolio"]);
+                addMessage(t("Noted. Which asset types are most critical to your legacy? (e.g. Financial, Real Estate, or Digital)", "नोट किया। आपकी विरासत के लिए कौन सी संपत्ति सबसे महत्वपूर्ण है? (वित्तीय, रियल एस्टेट, या डिजिटल)"), "ai");
+                addChips(t(["Financial Assets", "Real Estate", "Digital Portfolio"], ["वित्तीय संपत्ति", "रियल एस्टेट", "डिजिटल पोर्टफोलियो"]));
                 state.intent = 'PLAN_STEP_2';
             } else if(state.intent === 'PLAN_STEP_2') {
                 state.data.plan.assets = val;
-                addMessage("Final variable: Do you have a legally registered Will in place?", "ai");
-                addChips(["Yes, I have one", "No, not yet"]);
+                addMessage(t("Final variable: Do you have a legally registered Will in place?", "अंतिम प्रश्न: क्या आपके पास कानूनी रूप से पंजीकृत वसीयत है?"), "ai");
+                addChips(t(["Yes, I have one", "No, not yet"], ["हां, है", "नहीं, अभी नहीं"]));
                 state.intent = 'PLAN_STEP_3';
             } else if(state.intent === 'PLAN_STEP_3') {
                 state.data.plan.will = val;
@@ -711,13 +719,22 @@
         }
 
         function generateVaultPlan() {
-            addMessage("Cross-referencing life variables... generating **Stardust Roadmap**.", "ai");
+            addMessage(t("Cross-referencing life variables... generating **Stardust Roadmap**.", "जीवन चर का विश्लेषण हो रहा है... **Stardust रोडमैप** तैयार हो रहा है।"), "ai");
             setTimeout(() => {
-                let roadmap = `### 🌟 Your Personalized Security Roadmap<br><br>`;
-                roadmap += `1. **Nominee Setup**: Link your primary guardian.<br>`;
-                roadmap += `2. **Document Partitioning**: Secure your ${state.data.plan.assets || 'assets'} in High-Security Layer.<br>`;
-                roadmap += `3. **Inactivity Trigger**: Set a 6-month 'Dead-Man Switch'.<br><br>`;
-                roadmap += `**Should we proceed with Step 1 right now?**`;
+                let roadmap;
+                if(state.lang === 'hi') {
+                    roadmap = `### 🌟 आपका व्यक्तिगत सुरक्षा रोडमैप<br><br>`;
+                    roadmap += `1. **नॉमिनी सेटअप**: अपने प्राथमिक गार्जियन को जोड़ें।<br>`;
+                    roadmap += `2. **दस्तावेज़ विभाजन**: अपनी ${state.data.plan.assets || 'संपत्ति'} को उच्च-सुरक्षा में रखें।<br>`;
+                    roadmap += `3. **निष्क्रियता ट्रिगर**: 6 महीने का 'डेड-मैन स्विच' सेट करें।<br><br>`;
+                    roadmap += `**क्या हम अभी चरण 1 से शुरू करें?**`;
+                } else {
+                    roadmap = `### 🌟 Your Personalized Security Roadmap<br><br>`;
+                    roadmap += `1. **Nominee Setup**: Link your primary guardian.<br>`;
+                    roadmap += `2. **Document Partitioning**: Secure your ${state.data.plan.assets || 'assets'} in High-Security Layer.<br>`;
+                    roadmap += `3. **Inactivity Trigger**: Set a 6-month 'Dead-Man Switch'.<br><br>`;
+                    roadmap += `**Should we proceed with Step 1 right now?**`;
+                }
                 addMessage(roadmap, "ai");
                 state.intent = 'ROADMAP_GENERATED';
             }, 1000);
@@ -726,13 +743,13 @@
         function startExecution() {
             state.intent = 'PLAN_EXECUTION';
             state.planExecutionStep = 1;
-            addMessage("Protocol Initiated. **Step 1: Nominee Setup**. Please provide the 10-digit number for your primary guardian.", "ai");
+            addMessage(t("Protocol Initiated. **Step 1: Nominee Setup**. Please provide the 10-digit number for your primary guardian.", "प्रोटोकॉल शुरू। **चरण 1: नॉमिनी सेटअप**। कृपया अपने प्राथमिक गार्जियन का 10 अंकों का नंबर दें।"), "ai");
         }
 
         function nextExecutionStep() {
             state.planExecutionStep++;
             if(state.planExecutionStep === 2) {
-                addMessage("**Step 2: Document Partitioning**. Please select the critical document you wish to encrypt first.", "ai");
+                addMessage(t("**Step 2: Document Partitioning**. Please select the critical document you wish to encrypt first.", "**चरण 2: दस्तावेज़ विभाजन**। कृपया वह दस्तावेज़ चुनें जिसे पहले एन्क्रिप्ट करना है।"), "ai");
                 setTimeout(() => document.getElementById('filePicker').click(), 1000);
             }
         }
@@ -740,18 +757,10 @@
         function handleFileSelect(input) {
             if(input.files && input.files[0]) {
                 const fileName = input.files[0].name;
-                addMessage("Uploading document...", "u", fileName);
+                addMessage(t("Uploading document...", "दस्तावेज़ अपलोड हो रहा है..."), "u", fileName);
                 setTimeout(() => {
-                    // Save to vaultItems
-                    state.vaultItems.push({
-                        id: Date.now(),
-                        type: state.data.category ? state.data.category.toUpperCase() : 'DOCUMENT',
-                        name: fileName,
-                        value: 'Encrypted Binary',
-                        date: new Date().toLocaleDateString()
-                    });
-
-                    addMessage(`I have successfully identified and encrypted **${fileName}**. It is now safely vault-side.`, "ai");
+                    state.vaultItems.push({ id: Date.now(), type: state.data.category ? state.data.category.toUpperCase() : 'DOCUMENT', name: fileName, value: 'Encrypted Binary', date: new Date().toLocaleDateString() });
+                    addMessage(t(`I have successfully identified and encrypted **${fileName}**. It is now safely vault-side.`, `**${fileName}** सफलतापूर्वक पहचाना और एन्क्रिप्ट किया गया। अब यह वॉल्ट में सुरक्षित है।`), "ai");
                     if(state.intent === 'PLAN_EXECUTION' && state.planExecutionStep === 2) {
                         nextExecutionStep();
                     }
@@ -760,8 +769,8 @@
         }
 
         function guideUser() {
-            addMessage("I apologize, my core logic cannot parse that sequence. Try commands like 'Hello' or 'Plan my vault'.", "ai");
-            addChips(["Hello", "Plan my vault"]);
+            addMessage(t("I apologize, my core logic cannot parse that sequence. Try commands like 'Hello' or 'Plan my vault'.", "क्षमा करें, मैं यह समझ नहीं पाया। 'नमस्ते' या 'योजना बनाओ' जैसे कमांड आज़माएं।"), "ai");
+            addChips(t(["Hello", "Plan my vault"], ["नमस्ते", "योजना बनाओ"]));
         }
 
         document.getElementById('in').addEventListener('keypress', (e) => {
@@ -812,7 +821,7 @@
             const recognition = new SpeechRecognition();
             recognition.continuous = false;
             recognition.interimResults = false;
-            recognition.maxAlternatives = 3;
+            recognition.maxAlternatives = 1;
 
             recognition.onstart = () => {
                 voiceState.isListening = true;
@@ -821,21 +830,18 @@
             };
 
             recognition.onresult = (event) => {
-                const results = event.results[0];
-                const confidence = results[0].confidence;
-                let transcript = results[0].transcript.trim();
-
-                // Noise filter: reject very low confidence (background noise)
-                if (confidence < 0.1) {
-                    addMessage("I couldn't catch that clearly. Please try again.", "ai");
-                    return;
+                let transcript = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
                 }
+                transcript = transcript.trim();
+
+                if (!transcript) return;
 
                 // Detect language from result
                 const hasDevanagari = /[\u0900-\u097F]/.test(transcript);
                 if (hasDevanagari) {
                     document.getElementById('lang-badge').textContent = 'HI';
-                    // Translate Hindi script words to English equivalents
                     for (const [hindi, eng] of Object.entries(hindiMap)) {
                         transcript = transcript.replace(new RegExp(hindi, 'gi'), eng);
                     }
