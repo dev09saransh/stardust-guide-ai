@@ -318,7 +318,8 @@
             isProcessing: false,
             securityScore: 35,
             zones: { assets: false, insur: false, legal: false, nominee: false },
-            planExecutionStep: 0
+            planExecutionStep: 0,
+            vaultItems: [] // Central storage for all documents and nominee data
         };
 
         const intents = [
@@ -328,7 +329,10 @@
             { id: 'SUCCESSION', keys: ['succession', 'legacy', 'dead', 'death', 'after', 'will', 'transfer', 'inheritance'], score: 10 },
             { id: 'NOMINEE', keys: ['nominee', 'person', 'family', 'friend', 'emergency', 'contact', 'guardian'], score: 10 },
             { id: 'SECURITY', keys: ['safe', 'secure', 'encrypt', 'protection', 'how', 'why', 'hack'], score: 10 },
-            { id: 'PLAN', keys: ['plan', 'future', 'guide', 'roadmap', 'strategies', 'what should i do'], score: 10 }
+            { id: 'PLAN', keys: ['plan', 'future', 'guide', 'roadmap', 'strategies', 'what should i do'], score: 10 },
+            { id: 'VIEW_VAULT', keys: ['view', 'show', 'list', 'my items', 'documents', 'what do i have', 'vault'], score: 10 },
+            { id: 'DELETE_DATA', keys: ['delete', 'remove', 'erase', 'discard'], score: 10 },
+            { id: 'UPDATE_DATA', keys: ['update', 'change', 'modify', 'edit'], score: 10 }
         ];
 
         function toggleDashboard() {
@@ -453,6 +457,16 @@
                         state.data.nominee = phone[0];
                         state.zones.nominee = true;
                         state.securityScore += 15;
+                        
+                        // Store nominee data in vaultItems
+                        state.vaultItems.push({
+                            id: Date.now(),
+                            type: 'Nominee',
+                            name: 'Primary Guardian',
+                            value: phone[0],
+                            date: new Date().toLocaleDateString()
+                        });
+
                         addMessage(`Nominee registered: **${phone[0]}**. System pulse established.`, "ai");
                         nextExecutionStep();
                     } else {
@@ -461,6 +475,44 @@
                     finalizeInput();
                     return;
                 }
+            }
+
+            if(state.intent === 'DELETE_WAITING_ID') {
+                const index = parseInt(val) - 1;
+                if(!isNaN(index) && state.vaultItems[index]) {
+                    const removed = state.vaultItems.splice(index, 1)[0];
+                    addMessage(`Successfully purged **${removed.name || removed.value}** from the encryption layer.`, "ai");
+                    state.intent = null;
+                } else {
+                    addMessage("Invalid selection. Protocol aborted.", "ai");
+                    state.intent = null;
+                }
+                finalizeInput();
+                return;
+            }
+
+            if(state.intent === 'UPDATE_WAITING_ID') {
+                const index = parseInt(val) - 1;
+                if(!isNaN(index) && state.vaultItems[index]) {
+                    state.data.updateIndex = index;
+                    addMessage(`Gateway ready for **${state.vaultItems[index].name}**. Please provide the new value or updated information.`, "ai");
+                    state.intent = 'UPDATE_WAITING_VALUE';
+                } else {
+                    addMessage("Target not found. Update sequence terminated.", "ai");
+                    state.intent = null;
+                }
+                finalizeInput();
+                return;
+            }
+
+            if(state.intent === 'UPDATE_WAITING_VALUE') {
+                const index = state.data.updateIndex;
+                const oldVal = state.vaultItems[index].value;
+                state.vaultItems[index].value = val;
+                addMessage(`Record updated from **${oldVal}** to **${val}**. New entropy applied.`, "ai");
+                state.intent = null;
+                finalizeInput();
+                return;
             }
 
             let candidates = intents.map(i => {
@@ -518,6 +570,34 @@
                     state.data.plan = {};
                     addChips(["Immediate family", "No dependents"]);
                     break;
+                case 'VIEW_VAULT':
+                    if(state.vaultItems.length === 0) {
+                        addMessage("Your vault is currently empty. No documents or nominees have been secured yet.", "ai");
+                    } else {
+                        let list = "### 📂 Secured Data Vault<br><br>";
+                        state.vaultItems.forEach((item, i) => {
+                            list += `${i+1}. **${item.type}**: ${item.name || item.value} (${item.date})<br>`;
+                        });
+                        addMessage(list, "ai");
+                    }
+                    addChips(["Update data", "Delete data", "Plan my vault"]);
+                    break;
+                case 'DELETE_DATA':
+                    if(state.vaultItems.length === 0) {
+                        addMessage("There is no data to delete. The vault is clean.", "ai");
+                    } else {
+                        addMessage("Purge sequence initiated. Please enter the number of the item you wish to permanently delete from the vault.", "ai");
+                        state.intent = 'DELETE_WAITING_ID';
+                    }
+                    break;
+                case 'UPDATE_DATA':
+                    if(state.vaultItems.length === 0) {
+                        addMessage("Vault is empty. Nothing to update.", "ai");
+                    } else {
+                        addMessage("Update gateway opening. Which item number do you need to modify?", "ai");
+                        state.intent = 'UPDATE_WAITING_ID';
+                    }
+                    break;
             }
         }
 
@@ -570,6 +650,15 @@
                 const fileName = input.files[0].name;
                 addMessage("Uploading document...", "u", fileName);
                 setTimeout(() => {
+                    // Save to vaultItems
+                    state.vaultItems.push({
+                        id: Date.now(),
+                        type: state.data.category ? state.data.category.toUpperCase() : 'DOCUMENT',
+                        name: fileName,
+                        value: 'Encrypted Binary',
+                        date: new Date().toLocaleDateString()
+                    });
+
                     addMessage(`I have successfully identified and encrypted **${fileName}**. It is now safely vault-side.`, "ai");
                     if(state.intent === 'PLAN_EXECUTION' && state.planExecutionStep === 2) {
                         nextExecutionStep();
