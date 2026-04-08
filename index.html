@@ -946,20 +946,32 @@
             const utterance = new SpeechSynthesisUtterance(clean);
             const badge = document.getElementById('lang-badge').textContent;
             
-            // Set language
-            utterance.lang = (badge === 'HI') ? 'hi-IN' : 'en-IN';
+            // Set language carefully
+            utterance.lang = (badge === 'HI') ? 'hi-IN' : 'en-US';
             
             // Try to find a specific voice for the language
             const voices = window.speechSynthesis.getVoices();
             if (voices.length > 0) {
-                const langCode = (badge === 'HI') ? 'hi' : 'en';
-                const voice = voices.find(v => v.lang.startsWith(langCode));
-                if (voice) utterance.voice = voice;
+                let voice;
+                if (badge === 'HI') {
+                    // Look for Google Hindi, Microsoft Kalpana, or any 'hi' language voice
+                    voice = voices.find(v => v.name.includes('Google हिन्दी') || v.name.includes('Kalpana') || v.lang.toLowerCase().includes('hi-in') || v.lang.toLowerCase() === 'hi');
+                } else {
+                    voice = voices.find(v => v.lang.startsWith('en'));
+                }
+                
+                if (voice) {
+                    utterance.voice = voice;
+                }
             }
 
+            // Fallbacks for pitch/rate to ensure compatibility
             utterance.rate = 1.0;
             utterance.pitch = 1.0;
             utterance.volume = 1.0;
+
+            // Optional error handling for debugging silently
+            utterance.onerror = (e) => console.log("TTS Error:", e);
 
             window.speechSynthesis.speak(utterance);
         }
@@ -985,6 +997,14 @@
 
         // Initialize speech recognition
         initSpeechRecognition();
+
+        // Preload voices for Chrome/Safari compatibility
+        if (window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+            window.speechSynthesis.getVoices();
+        }
     </script>
 </body>
 </html>
