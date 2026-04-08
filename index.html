@@ -319,9 +319,9 @@
         <div class="bottom-area">
             <div class="input-container">
                 <input type="text" id="in" placeholder="Ask Stardust... (voice: EN / HI)" autocomplete="off">
-                <button class="mic-btn" id="mic-btn" onclick="toggleVoice()" title="Voice Input (English / Hindi)">
+                <button class="mic-btn" id="mic-btn" onclick="toggleVoice()" title="Click: Listen | Double-click: Switch Language">
                     🎙️
-                    <span class="voice-lang-indicator" id="lang-badge">EN</span>
+                    <span class="voice-lang-indicator" id="lang-badge" onclick="event.stopPropagation(); switchLang()">EN</span>
                 </button>
                 <div class="siri-orb-wrapper" id="orb-trigger" onclick="send()">
                     <div class="siri-orb-glow"></div>
@@ -825,10 +825,9 @@
                 const confidence = results[0].confidence;
                 let transcript = results[0].transcript.trim();
 
-                // Noise filter: reject low confidence
-                if (confidence < 0.4) {
+                // Noise filter: reject very low confidence (background noise)
+                if (confidence < 0.1) {
                     addMessage("I couldn't catch that clearly. Please try again.", "ai");
-                    speakResponse("I couldn't catch that clearly. Please try again.");
                     return;
                 }
 
@@ -880,21 +879,24 @@
                 return;
             }
 
-            // Cycle language on each press: en-IN -> hi-IN -> en-IN
-            if (voiceState.currentLang === 'en-IN') {
-                voiceState.currentLang = 'hi-IN';
-                document.getElementById('lang-badge').textContent = 'HI';
-            } else {
-                voiceState.currentLang = 'en-IN';
-                document.getElementById('lang-badge').textContent = 'EN';
-            }
-
+            // Just start listening in the current language (don't switch)
             voiceState.recognition.lang = voiceState.currentLang;
 
             try {
                 voiceState.recognition.start();
             } catch(e) {
                 // Already started, ignore
+            }
+        }
+
+        function switchLang() {
+            // Toggle language when badge is clicked
+            if (voiceState.currentLang === 'en-IN') {
+                voiceState.currentLang = 'hi-IN';
+                document.getElementById('lang-badge').textContent = 'HI';
+            } else {
+                voiceState.currentLang = 'en-IN';
+                document.getElementById('lang-badge').textContent = 'EN';
             }
         }
 
