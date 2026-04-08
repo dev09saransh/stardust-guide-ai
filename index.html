@@ -374,15 +374,35 @@
         };
 
         // Hindi keywords for auto-detection from typed/transliterated input
-        const hindiIndicators = ['namaste','namaskar','kaise','kya','mera','mere','hai','haan','nahi','dikhao','hatao','badlo','daalo','rakho','yojana','suraksha','madad','dost','parivaar','dekho','suchi','bhavishya'];
+        const hindiIndicators = [
+            // Greetings & basics
+            'namaste','namaskar','namaskaaar','kaise','kya','mera','mere','meri','hai','haan','nahi','ji',
+            // Verbs (common)
+            'karo','kro','karna','karein','kijiye','bolo','batao','bataein','dikhao','dikhaein','dekho',
+            'hatao','mita','nikalo','badlo','sudharo','daalo','daalein','rakho','rakhein','bhejo',
+            'shuru','band','chalu','chalo','ruko','jodo','jodein',
+            // Action words
+            'upload','surakshit','suraksha','yojana','madad','sahayata',
+            // Nouns
+            'dost','parivaar','suchi','bhavishya','dastavez','faail','kagaz','vyakti','sampark',
+            'virasat','vasiyat','bima','bimaa','kanuni','vittiya',
+            // Particles & connectors
+            'ka','ki','ke','ko','se','mein','par','aur','bhi','ya','toh','abhi','pehle','baad',
+            // Pronouns
+            'main','hum','tum','aap','woh','yeh','iska','uska','hamara','tumhara','apna','apni',
+            // Common phrases
+            'haal','theek','accha','sahi','galat','zaruri','jaruri','chahiye','chahie','dijiye','do'
+        ];
 
         function detectLang(val) {
             // Check for Devanagari script
             if (/[\u0900-\u097F]/.test(val)) return 'hi';
             // Check for transliterated Hindi words
-            const words = val.toLowerCase().split(/\s+/);
+            const words = val.toLowerCase().replace(/[.,!?]/g, '').split(/\s+/);
             const hindiHits = words.filter(w => hindiIndicators.includes(w)).length;
             if (hindiHits >= 1) return 'hi';
+            // Check for common Hindi verb suffixes
+            if (/\b\w+(iye|iye|ein|enge|ogi|ega|egi|unga|ungi|aayi|aaye|aaein)\b/i.test(val)) return 'hi';
             return 'en';
         }
 
