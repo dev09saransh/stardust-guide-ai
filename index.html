@@ -357,6 +357,14 @@
             }
         }
 
+        function renderMarkdown(text) {
+            return text
+                .replace(/### (.+?)(<br>|$)/g, '<h3 style="font-size:16px;color:var(--siri-blue);margin:8px 0;">$1</h3>')
+                .replace(/## (.+?)(<br>|$)/g, '<h2 style="font-size:18px;color:var(--siri-blue);margin:8px 0;">$1</h2>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--siri-blue);">$1</strong>')
+                .replace(/^\d+\.\s/gm, '<span style="color:var(--siri-purple);font-weight:600;">$&</span>');
+        }
+
         function addMessage(msgText, type, file = null) {
             const chat = document.getElementById('chat');
             const chips = document.getElementById('chips');
@@ -364,7 +372,7 @@
             div.className = 'msg ' + (type === 'ai' ? 'ai' : 'u');
             
             if(type === 'ai') {
-                div.innerHTML = `<div class="ai-label">Stardust Guardian</div>${msgText}`;
+                div.innerHTML = `<div class="ai-label">Stardust Guardian</div>${renderMarkdown(msgText)}`;
             } else {
                 div.innerText = msgText;
             }
