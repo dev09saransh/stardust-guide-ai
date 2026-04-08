@@ -324,10 +324,10 @@
 
         const intents = [
             { id: 'GREETING', keys: ['hello', 'hi', 'hey', 'greetings', 'sup', 'morning', 'evening', 'help'], score: 10 },
-            { id: 'UPLOAD', keys: ['upload', 'add', 'secure', 'save', 'put', 'file', 'document', 'paper'], score: 10 },
+            { id: 'UPLOAD', keys: ['upload', 'secure', 'save', 'put', 'file', 'document', 'paper'], score: 10 },
             { id: 'AUDIT', keys: ['audit', 'check', 'scan', 'verify', 'status', 'health', 'how am i doing'], score: 10 },
             { id: 'SUCCESSION', keys: ['succession', 'legacy', 'dead', 'death', 'after', 'will', 'transfer', 'inheritance'], score: 10 },
-            { id: 'NOMINEE', keys: ['nominee', 'person', 'family', 'friend', 'emergency', 'contact', 'guardian'], score: 10 },
+            { id: 'NOMINEE', keys: ['nominee', 'add', 'person', 'family', 'friend', 'emergency', 'contact', 'guardian'], score: 12 },
             { id: 'SECURITY', keys: ['safe', 'secure', 'encrypt', 'protection', 'how', 'why', 'hack'], score: 10 },
             { id: 'PLAN', keys: ['plan', 'future', 'guide', 'roadmap', 'strategies', 'what should i do'], score: 10 },
             { id: 'VIEW_VAULT', keys: ['view', 'show', 'list', 'my items', 'documents', 'what do i have', 'vault'], score: 10 },
@@ -515,6 +515,36 @@
                 return;
             }
 
+            if(state.intent === 'NOMINEE_WAITING_NAME') {
+                state.data.newNomineeName = val;
+                addMessage(`Noted: **${val}**. Now provide their 10-digit contact number.`, "ai");
+                state.intent = 'NOMINEE_WAITING_NUMBER';
+                finalizeInput();
+                return;
+            }
+
+            if(state.intent === 'NOMINEE_WAITING_NUMBER') {
+                const phone = val.match(/\d+/);
+                if(phone && phone[0].length >= 10) {
+                    state.vaultItems.push({
+                        id: Date.now(),
+                        type: 'Nominee',
+                        name: state.data.newNomineeName,
+                        value: phone[0],
+                        date: new Date().toLocaleDateString()
+                    });
+                    state.zones.nominee = true;
+                    state.securityScore = Math.min(state.securityScore + 10, 100);
+                    addMessage(`Nominee **${state.data.newNomineeName}** registered with contact **${phone[0]}**. Guardian link established.`, "ai");
+                    addChips(["Add another nominee", "Show my vault", "Plan my vault"]);
+                    state.intent = null;
+                } else {
+                    addMessage("I need a valid 10-digit number. Please try again.", "ai");
+                }
+                finalizeInput();
+                return;
+            }
+
             let candidates = intents.map(i => {
                 let s = 0;
                 i.keys.forEach(k => { if(val.includes(k)) s += i.score; });
@@ -563,6 +593,10 @@
                     addMessage("Succession logic requires a timing trigger. How many months of total inactivity should trigger the vault transfer?", "ai");
                     state.intent = 'SUCCESSION_WAITING_TIME';
                     addChips(["6 months", "12 months", "24 months"]);
+                    break;
+                case 'NOMINEE':
+                    addMessage("Nominee registration gateway open. Please provide the **full name** of the person you wish to designate as a guardian.", "ai");
+                    state.intent = 'NOMINEE_WAITING_NAME';
                     break;
                 case 'PLAN':
                     addMessage("I am the **Vault Architect**. Let us build your secure legacy. To start, do you have immediate family or dependents who rely on you financially?", "ai");
